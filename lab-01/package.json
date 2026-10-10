@@ -1,0 +1,25 @@
+{
+  "name": "lab-01-random-generator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.13.0 <25"
+  },
+  "scripts": {
+    "dev:client": "vite",
+    "dev:server": "node --watch server/index.js",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "5.2.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "6.1.1",
+    "vite": "8.3.1"
+  }
+}

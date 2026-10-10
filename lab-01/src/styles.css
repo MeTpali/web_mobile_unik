@@ -1,0 +1,258 @@
+/* Общие стили документа. React задаёт классы, CSS определяет внешний вид.
+   Системные шрифты не требуют интернета; line-height без единиц масштабируется
+   вместе с текстом. font-synthesis запрещает искусственную имитацию начертания. */
+:root {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #17233b;
+  background: #eef2f8;
+  line-height: 1.6;
+  font-synthesis: none;
+}
+
+/* border-box включает padding и border в ширину элемента — меньше риска переполнения. */
+* {
+  box-sizing: border-box;
+}
+
+/* Вместо стандартного margin браузера задаём пространство вокруг карточки. */
+body {
+  margin: 0;
+  padding: 64px 24px;
+}
+
+/* max-width ограничивает длину строк на ПК; margin:auto центрирует блок.
+   На мобильном карточка сжимается. break-word переносит слишком длинные слова.
+   Цвет тени в восьмизначной записи содержит также прозрачность (последние цифры). */
+.card {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px;
+  border: 1px solid #d9e0ec;
+  border-top: 4px solid #244ca5;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 12px 40px #17233b0d;
+  overflow-wrap: break-word;
+}
+
+/* rem зависит от корневого шрифта, em — от текущего. Межбуквенный интервал
+   слегка уплотняет крупный заголовок, line-height задаёт расстояние между строками. */
+h1 {
+  margin: 12px 0 16px;
+  font-size: 2.25rem;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+/* Второстепенная подпись; > ниже выбирает только непосредственного ребёнка карточки. */
+.caption {
+  color: #52617a;
+  font-size: 0.9375rem;
+}
+
+.card>.caption {
+  margin: 0;
+}
+
+/* Вертикальные интервалы разделяют заголовок, описание, подсказку и поля. */
+.intro {
+  margin: 0 0 28px;
+}
+
+#range-hint {
+  margin: 0 0 20px;
+}
+
+/* Убираем стандартную рамку, но сохраняем семантику группы fieldset/legend.
+   min-width:0 позволяет сжимать группу до ширины мобильной карточки. */
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+legend {
+  font-weight: 650;
+  padding: 0;
+  margin-bottom: 12px;
+}
+
+/* Две равные колонки Grid: 1fr — доля свободного места.
+   minmax(0,1fr) и min-width:0 у .field не дают содержимому растянуть сетку.
+   gap задаёт промежуток между колонками. */
+.range-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.field {
+  min-width: 0;
+}
+
+/* Подпись занимает отдельную строку над полем. */
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+/* Наследуем шрифт, заполняем ширину колонки, сохраняем минимум 48px
+   для касания. min-width:0 снимает нежелательный минимальный размер input. */
+input,
+button {
+  font: inherit;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  border-radius: 10px;
+}
+
+/* Рамка отличает редактируемое поле; padding отделяет число от края. */
+input {
+  padding: 10px 12px;
+  border: 1px solid #78869b;
+  color: #17233b;
+  background: #fff;
+}
+
+/* Основное действие выделено цветом и жирностью. Наведение ниже применяется
+   только к доступной кнопке: :not(:disabled) исключает состояние ожидания. */
+button {
+  padding: 12px 20px;
+  border: 1px solid #244ca5;
+  background: #244ca5;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: #193a84;
+}
+
+/* Запасной индикатор для браузеров без :focus-visible. */
+input:focus,
+button:focus {
+  outline: 3px solid #925000;
+  outline-offset: 3px;
+}
+
+/* У современных браузеров убираем контур при фокусе мышью, но оставляем при Tab.
+   Браузер без :focus-visible игнорирует правило и сохраняет запасной :focus. */
+input:focus:not(:focus-visible),
+button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Реальную блокировку обеспечивает disabled в HTML, CSS только показывает её. */
+input:disabled {
+  color: #52617a;
+  background: #f1f4f9;
+}
+
+button:disabled {
+  background: #52617a;
+  border-color: #52617a;
+  cursor: wait;
+}
+
+/* Ошибка выделена текстом, рамкой и фоном. anywhere переносит даже непрерывную
+   длинную строку; информация не передаётся только одним цветом. */
+.error {
+  margin: 20px 0 0;
+  padding: 12px 16px;
+  border-left: 4px solid #a12020;
+  background: #fff1f1;
+  color: #8b1c1c;
+  overflow-wrap: anywhere;
+}
+
+/* Область остаётся в DOM для объявления ошибки. */
+.error:empty {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Отдельная карточка ответа; локальные правила для p не меняют все абзацы страницы. */
+.result {
+  margin-top: 28px;
+  padding: 24px;
+  border: 1px solid #d9e0ec;
+  background: #f1f4f9;
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+
+.result p {
+  margin: 8px 0;
+}
+
+.result-label {
+  color: #52617a;
+  font-size: 0.9375rem;
+}
+
+/* Семантический результат вычисления. tabular-nums просит цифры одинаковой ширины,
+   если шрифт поддерживает это. Крупное число остаётся переносимым на узком экране. */
+output {
+  display: block;
+  font-size: 3rem;
+  line-height: 1.3;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Ширина viewport в CSS-пикселях, не модель устройства. Поля становятся одной
+   колонкой; DOM и порядок Tab не меняются. Уменьшаем отступы и крупный текст. */
+@media (max-width: 600px) {
+  body {
+    padding: 24px 12px;
+  }
+
+  .card {
+    padding: 24px 20px;
+    border-radius: 14px;
+  }
+
+  h1 {
+    font-size: 1.75rem;
+  }
+
+  .range-fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .result {
+    padding: 16px;
+  }
+
+  output {
+    font-size: 2rem;
+  }
+}
+
+/* Для самых узких экранов работают оба @media. Этот поздний блок переопределяет
+   размеры предыдущего при той же специфичности селекторов (правило каскада CSS). */
+@media (max-width: 360px) {
+  .card {
+    padding: 20px 16px;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  .result {
+    padding: 12px;
+  }
+
+  output {
+    font-size: 1.75rem;
+  }
+}
