@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Генератор чисел
+Comment=Генератор случайных чисел через WebSocket
+Icon=com.example.calculator
+Exec=/usr/bin/com.example.calculator
+X-Nemo-Application-Type=silica-qt5
+
+[X-Application]
+Permissions=Internet
+OrganizationName=com.example
+ApplicationName=Генератор чисел
