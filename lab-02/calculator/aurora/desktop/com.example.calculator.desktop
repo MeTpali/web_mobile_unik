@@ -1,3 +1,4 @@
+# Name — отображаемое имя; Exec — команда запуска установленного бинарного файла.
 [Desktop Entry]
 Type=Application
 Name=Генератор чисел
@@ -6,7 +7,9 @@ Icon=com.example.calculator
 Exec=/usr/bin/com.example.calculator
 X-Nemo-Application-Type=silica-qt5
 
+# OrganizationName.ApplicationName обязаны совпадать с именем RPM-пакета.
+# Internet разрешает соединение с Python-сервером в песочнице приложения.
 [X-Application]
 Permissions=Internet
 OrganizationName=com.example
-ApplicationName=Генератор чисел
+ApplicationName=calculator

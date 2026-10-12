@@ -1,10 +1,11 @@
+# This file will be recreated at the next build. To avoid this, delete this line.
+
 # CMAKE_SYSTEM_PROCESSOR - CPU architecture name (armv7l, aarch64, x86_64)
 # CMAKE_BUILD_TYPE       - Build mode (debug, profile, release)
-# PSDK_VERSION           - Build psdk exact version
-# PSDK_MAJOR             - Build psdk major version
 
 cmake_minimum_required(VERSION 3.10)
-project(com.example.calculator LANGUAGES CXX)
+# Имя бинарного файла берётся из макросов RPM, чтобы совпадать с пакетом.
+project(${FLUTTER_PROJECT_NAME} LANGUAGES CXX)
 
 include(GNUInstallDirs)
 
@@ -20,24 +21,16 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_SKIP_RPATH OFF)
 set(CMAKE_INSTALL_RPATH "\$ORIGIN/../share/${BINARY_NAME}/lib")
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(FlutterEmbedder REQUIRED IMPORTED_TARGET flutter-embedder)
+add_executable(${BINARY_NAME} main.cpp)
 
-add_executable(${BINARY_NAME} main.cpp ${FLUTTER_DIR}/generated_plugin_registrant.cpp)
-target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::FlutterEmbedder)
-target_include_directories(${BINARY_NAME} PRIVATE ${FLUTTER_DIR})
-
+# Сгенерированный файл подключает embedder, плагины и нужные библиотеки.
 include(flutter/generated_plugins.cmake)
 
 set(PACKAGE_INSTALL_DIR    ${CMAKE_INSTALL_DATADIR}/${BINARY_NAME})
 set(DESKTOP_INSTALL_DIR    ${CMAKE_INSTALL_DATADIR}/applications)
 set(ICONS_INSTALL_ROOT_DIR ${CMAKE_INSTALL_DATADIR}/icons/hicolor)
 
-add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E copy
-                   ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/libflutter-embedder.so
-                   ${PROJECT_BINARY_DIR}/bundle/lib/libflutter-embedder.so)
-
+# Ресурсы Dart и движок устанавливаются рядом с приложением в share.
 install(FILES     ${PROJECT_BINARY_DIR}/bundle/icudtl.dat     DESTINATION ${PACKAGE_INSTALL_DIR})
 install(DIRECTORY ${PROJECT_BINARY_DIR}/bundle/flutter_assets DESTINATION ${PACKAGE_INSTALL_DIR})
 install(DIRECTORY ${PROJECT_BINARY_DIR}/bundle/lib            DESTINATION ${PACKAGE_INSTALL_DIR})

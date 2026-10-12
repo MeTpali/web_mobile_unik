@@ -1,7 +1,7 @@
 """Разбор текстового сообщения WebSocket и формирование одного ответа.
 
 Ошибки клиента являются обычными ответами и не разрывают соединение.
-request_id позволяет будущему Flutter-клиенту сопоставить запрос и результат.
+request_id позволяет Flutter-клиенту сопоставить запрос и результат.
 """
 
 import json
@@ -24,24 +24,31 @@ def reject_constant(value):
 
 def handle_message(text: str) -> dict:
     """Протокол: generate + min/max + необязательный строковый request_id."""
+    # Ограничение измеряется в байтах UTF-8, а не в количестве символов.
     if len(text.encode("utf-8")) > MAX_MESSAGE_BYTES:
         return error("MESSAGE_TOO_LARGE", "Сообщение не должно превышать 4096 байт")
     try:
+        # parse_constant запрещает нестандартные NaN/Infinity, которые
+        # Python по умолчанию умеет принимать, хотя JSON их не разрешает.
         data = json.loads(text, parse_constant=reject_constant)
     except (ValueError, RecursionError):
         return error("INVALID_JSON", "Некорректный JSON")
     if not isinstance(data, dict):
         return error("INVALID_REQUEST", "Сообщение должно быть JSON-объектом")
 
+    # ID используется для сопоставления ответа с запросом. Он не означает,
+    # что повторная отправка вернёт прежнее число: генерация каждый раз новая.
     request_id = data.get("request_id")
     if request_id is not None and (not isinstance(request_id, str) or not 1 <= len(request_id) <= 64):
         return error("INVALID_REQUEST", "request_id должен быть строкой длиной от 1 до 64 символов или null")
     if data.get("type") != "generate":
         return error("UNKNOWN_TYPE", "Поддерживается только type: generate", request_id)
+    # Разность множеств находит лишние ключи JSON-объекта.
     if set(data) - {"type", "request_id", "min", "max"}:
         return error("INVALID_REQUEST", "Сообщение содержит неизвестные поля", request_id)
     try:
         result = generate(data.get("min"), data.get("max"))
     except InvalidRange as exc:
         return error("INVALID_RANGE", str(exc), request_id)
+    # **result распаковывает min, max и value в общий словарь ответа.
     return {"type": "result", "request_id": request_id, **result}

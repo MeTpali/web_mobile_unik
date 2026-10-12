@@ -1,8 +1,12 @@
+// Небольшие виджеты представления. StatelessWidget получает состояние
+// от родителя; действия передаются через VoidCallback (void Function()).
+// const позволяет Flutter повторно использовать неизменяемые виджеты.
 import 'package:flutter/material.dart';
 import '../controllers/generator_controller.dart';
 import '../models/number_range.dart';
 import '../models/random_result.dart';
 
+// Общая оболочка карточек: одинаковые отступы и вертикальная компоновка.
 class SectionCard extends StatelessWidget {
   const SectionCard({super.key, required this.children});
   final List<Widget> children;
@@ -18,6 +22,7 @@ class SectionCard extends StatelessWidget {
       );
 }
 
+// Управление подключением. Текст и действие кнопки зависят от статуса.
 class ConnectionCard extends StatelessWidget {
   const ConnectionCard(
       {super.key,
@@ -47,6 +52,7 @@ class ConnectionCard extends StatelessWidget {
       const SizedBox(height: 16),
       TextField(
         controller: address,
+        // Адрес нельзя менять, пока подключение устанавливается или активно.
         enabled: !connected && !connecting,
         keyboardType: TextInputType.url,
         autocorrect: false,
@@ -58,6 +64,7 @@ class ConnectionCard extends StatelessWidget {
           'Телефон и компьютер должны быть в одной локальной сети.'),
       const SizedBox(height: 16),
       OutlinedButton.icon(
+        // Во время подключения та же кнопка отменяет попытку.
         onPressed: connected || connecting ? onDisconnect : onConnect,
         icon: Icon(connected || connecting ? Icons.link_off : Icons.link),
         label: Text(connected
@@ -70,6 +77,7 @@ class ConnectionCard extends StatelessWidget {
   }
 }
 
+// Форма хранится на родительском экране; карточка лишь отображает поля.
 class RangeCard extends StatelessWidget {
   const RangeCard(
       {super.key,
@@ -97,6 +105,7 @@ class RangeCard extends StatelessWidget {
           child: Column(children: [
             TextFormField(
               controller: minimum,
+              // Правила чисел находятся в модели, а не дублируются в UI.
               validator: NumberRange.validateBound,
               keyboardType: const TextInputType.numberWithOptions(signed: true),
               decoration: const InputDecoration(labelText: 'Минимум'),
@@ -104,6 +113,7 @@ class RangeCard extends StatelessWidget {
             const SizedBox(height: 12),
             TextFormField(
               controller: maximum,
+              // Проверка максимума использует текущий текст минимального поля.
               validator: (text) {
                 return NumberRange.validateMaximum(
                   text,
@@ -116,6 +126,8 @@ class RangeCard extends StatelessWidget {
           ])),
       const SizedBox(height: 20),
       FilledButton.icon(
+        // null отключает кнопку средствами Flutter; контроллер отдельно
+        // проверяет canGenerate, поэтому защита не ограничена интерфейсом.
         onPressed: canGenerate ? onGenerate : null,
         icon: waiting
             ? const SizedBox(
@@ -129,6 +141,7 @@ class RangeCard extends StatelessWidget {
   }
 }
 
+// Результат может отсутствовать. ? в типе означает возможность null.
 class ResultCard extends StatelessWidget {
   const ResultCard({super.key, required this.result});
   final RandomResult? result;
@@ -137,6 +150,8 @@ class ResultCard extends StatelessWidget {
     return SectionCard(children: [
       const Text('Последний результат', textAlign: TextAlign.center),
       const SizedBox(height: 8),
+      // SelectableText позволяет выделить и скопировать число.
+      // ! допустим только в ветке, где result уже проверен на null.
       SelectableText(result == null ? '—' : '${result!.value}',
           textAlign: TextAlign.center,
           style: Theme.of(context)
@@ -153,6 +168,7 @@ class ResultCard extends StatelessWidget {
   }
 }
 
+// История уже ограничена контроллером; UI только выводит готовый список.
 class HistoryCard extends StatelessWidget {
   const HistoryCard({super.key, required this.history});
   final List<RandomResult> history;
@@ -161,6 +177,7 @@ class HistoryCard extends StatelessWidget {
     return SectionCard(children: [
       Text('История · последние 10',
           style: Theme.of(context).textTheme.titleMedium),
+      // Collection-for добавляет по одному ListTile в список children.
       for (final item in history)
         ListTile(
             contentPadding: EdgeInsets.zero,

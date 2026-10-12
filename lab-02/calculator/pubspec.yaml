@@ -1,4 +1,6 @@
 name: calculator
+organization: "com.example"
+license: "Proprietary"
 description: "Лабораторная № 2: генератор случайных чисел через WebSocket."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -87,3 +89,7 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+aurora:
+  permissions:
+    - Internet

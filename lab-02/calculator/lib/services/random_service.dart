@@ -1,3 +1,6 @@
+// Сетевой слой не импортирует Flutter: он занимается только транспортом
+// и протоколом. dart:io предоставляет нативный WebSocket (не Flutter Web),
+// dart:convert — JSON, dart:async — поток событий и Future.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -6,8 +9,12 @@ import '../models/number_range.dart';
 import '../models/random_result.dart';
 
 /// Типизированные события протокола, без состояния экрана и истории.
+// sealed ограничивает набор наследников этой библиотекой. Контроллер
+// различает тип события, вместо разбора нетипизированного JSON.
 sealed class RandomServiceEvent {}
 
+// Ответ сервера содержит результат либо сообщение прикладной ошибки.
+// Nullable ID соответствует контракту сервера для некорректных запросов.
 class RandomResponse extends RandomServiceEvent {
   RandomResponse(this.requestId, {this.result, this.error});
   final String? requestId;
@@ -20,6 +27,8 @@ class RandomConnectionLost extends RandomServiceEvent {
   final String message;
 }
 
+// Контракт обмена. Интерфейс не хранит историю и не сообщает UI
+// через ChangeNotifier: такие задачи принадлежат контроллеру.
 abstract interface class RandomService {
   Stream<RandomServiceEvent> get events;
   Future<void> connect(Uri address);
@@ -33,6 +42,8 @@ class WebSocketRandomService implements RandomService {
       {this.connectionTimeout = const Duration(seconds: 10)});
 
   final Duration connectionTimeout;
+  // broadcast допускает несколько слушателей. События не сохраняются:
+  // контроллер подписывается до подключения.
   final _events = StreamController<RandomServiceEvent>.broadcast();
   WebSocket? _socket;
   StreamSubscription<dynamic>? _subscription;
@@ -45,7 +56,11 @@ class WebSocketRandomService implements RandomService {
   @override
   Future<void> connect(Uri address) async {
     disconnect();
+    // Каждое disconnect меняет поколение соединения. Поздние callbacks
+    // от старого сокета не могут влиять на новую попытку.
     final generation = _generation;
+    // connect выполняет HTTP Upgrade handshake. Отдельно отслеживаем
+    // исходный Future: timeout сам по себе не отменяет операцию подключения.
     final pending = WebSocket.connect(address.toString());
     // Отмена и тайм-аут не отменяют handshake: поздний сокет закрываем.
     unawaited(pending.then((socket) {
@@ -57,7 +72,12 @@ class WebSocketRandomService implements RandomService {
       final socket = await pending.timeout(connectionTimeout);
       if (_disposed || generation != _generation) return;
       _socket = socket;
+      // Транспортный ping/pong выявляет неотвечающее соединение.
+      // Это не дополнительный JSON-запрос к генератору.
       socket.pingInterval = const Duration(seconds: 15);
+      // В отличие от HTTP одного соединения хватает для многих запросов.
+      // listen получает кадры; onError и onDone обрабатывают разные
+      // способы завершения потока. Ошибка формата также закрывает сокет.
       _subscription = socket.listen(
         (frame) {
           if (generation != _generation) return;
@@ -81,6 +101,8 @@ class WebSocketRandomService implements RandomService {
       );
     } catch (_) {
       if (generation == _generation) disconnect();
+      // Передаём исходное исключение контроллеру, который выберет
+      // пользовательское сообщение об ошибке подключения.
       rethrow;
     }
   }
@@ -89,6 +111,8 @@ class WebSocketRandomService implements RandomService {
   void generate(String requestId, NumberRange range) {
     final socket = _socket;
     if (socket == null) throw StateError('WebSocket is not connected');
+    // jsonEncode возвращает String, поэтому отправляется текстовый кадр.
+    // Числа сохраняются как int: Python отклоняет строковые и дробные границы.
     socket.add(jsonEncode({
       'type': 'generate',
       'request_id': requestId,
@@ -97,12 +121,15 @@ class WebSocketRandomService implements RandomService {
     }));
   }
 
+  // dynamic необходим на границе сокета: кадр может быть String или bytes.
+  // Ниже последовательно сужаем типы, прежде чем создавать модель.
   RandomResponse _decode(dynamic frame) {
     if (frame is! String) throw const FormatException();
     final data = jsonDecode(frame);
     if (data is! Map<String, dynamic>) throw const FormatException();
     final id = data['request_id'];
     if (id != null && id is! String) throw const FormatException();
+    // Прикладная ошибка — допустимый ответ, она не разрывает соединение.
     if (data['type'] == 'error') {
       final details = data['error'];
       if (details is! Map || details['message'] is! String) {
@@ -117,6 +144,8 @@ class WebSocketRandomService implements RandomService {
     if (value is! int || minimum is! int || maximum is! int) {
       throw const FormatException();
     }
+    // Даже успешный тип result не гарантирует корректности данных.
+    // Проверяем целые числа, ограничения и попадание значения в диапазон.
     final range = NumberRange(minimum, maximum);
     if (!range.isValid || value < minimum || value > maximum) {
       throw const FormatException();
@@ -132,6 +161,8 @@ class WebSocketRandomService implements RandomService {
 
   @override
   void disconnect() {
+    // Сначала инвалидируем старые callbacks, затем отменяем подписку
+    // и закрываем сокет. ?. безопасен, если соединение не было установлено.
     ++_generation;
     unawaited(_subscription?.cancel());
     _subscription = null;
@@ -143,6 +174,7 @@ class WebSocketRandomService implements RandomService {
   void dispose() {
     _disposed = true;
     disconnect();
+    // Закрытие StreamController освобождает сам источник событий.
     unawaited(_events.close());
   }
 }

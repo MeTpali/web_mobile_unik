@@ -50,3 +50,19 @@ flutter test
 - `services/random_service.dart` — интерфейс сервиса, WebSocket-транспорт и JSON-протокол. Не зависит от Flutter.
 
 Контроллер получает `RandomService` через конструктор. UI получает фабрику контроллера из `app.dart` и не создаёт сетевой сервис. Состояние доступно через геттеры; история доступна только для чтения. Логика контроллера проверяется с подставным сервисом отдельно от теста настоящего WebSocket.
+
+## Flutter для Авроры 3.41.4
+
+Платформенные `main.cpp`, `CMakeLists.txt` и RPM spec обновлены по шаблону Flutter для Авроры 3.41.4. Макросы `defines.inc` и `requires.inc` создаёт Flutter при сборке; вручную их создавать не нужно. Разрешение Internet указано в `pubspec.yaml` и desktop-файле.
+
+Ошибка `No psdk target found for platform arm` при пустом списке означает, что настроенный PSDK не содержит доступных таргетов. Для TrustPhone, определённого как `arm`, требуется `armv7hl`. Установите Chroot, Tooling и Target armv7hl версии 5.2.1.200; один Chroot недостаточен.
+
+Проверьте конфигурацию и список таргетов:
+
+```bash
+flutter-aurora config --list
+~/AuroraPlatformSDK/sdks/aurora_psdk/sdk-chroot sdk-assistant list
+flutter-aurora doctor -v
+```
+
+Если PSDK установлен в другом каталоге, исправьте путь через `flutter-aurora config --aurora-psdk-dir /путь/к/sdks/aurora_psdk`.
