@@ -1,0 +1,9 @@
+2026-10-25
+Package: com.example.expenseslab2
+Build and signature verification: OK
+Installation successful
+QML UI: started, no loading errors
+SQLite: /home/defaultuser/.local/share/com.example/expenseslab2/expenses.sqlite
+Server: https://192.168.0.104:8443
+PASS SQLite: offline queue, restart, isolation, conflicts, tombstones
+PASS HTTPS native: login, offline CRUD, restart, sync, conflicts, ETag 304

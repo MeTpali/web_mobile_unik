@@ -1,0 +1,10 @@
+TARGET = ru.kirik.taskslab2
+CONFIG += auroraapp c++11
+QT += network sql
+SOURCES += src/main.cpp src/apiclient.cpp src/localstore.cpp src/taskcontroller.cpp
+HEADERS += src/apiclient.h src/localstore.h src/taskcontroller.h
+AURORAAPP_ICONS = 86
+certificates.files = ../certificates/server.crt
+certificates.path = /usr/share/$${TARGET}/certificates
+INSTALLS += certificates
+DISTFILES += rpm/ru.kirik.taskslab2.spec

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Учёт задач — REST API</title>
+  <style>
+    body{font:17px sans-serif;max-width:850px;margin:auto;padding:18px;background:#f1f5f9;color:#152535}
+    section{background:white;padding:18px;border-radius:12px;margin:14px 0}label{display:block;margin:10px 0}
+    input,textarea,select,button{box-sizing:border-box;font:inherit;padding:10px;max-width:100%}input,textarea{width:100%}
+    button{margin:5px;min-height:44px}pre{white-space:pre-wrap;overflow-wrap:anywhere}li{padding:12px 0}
+    @media(max-width:500px){body{padding:8px}section{padding:12px}button{width:100%;margin:5px 0}}
+  </style>
+</head>
+<body>
+  <h1>Учёт задач</h1>
+  <p>Тестовая страница REST API v1. Все ресурсы загружаются с этого сервера. <a href="/docs">Swagger UI</a></p>
+  <section>
+    <h2>Вход</h2>
+    <form id="login"><label>Пользователь<input id="username" value="demo" required autocomplete="username"></label>
+      <label>Пароль<input id="password" type="password" required autocomplete="current-password"></label>
+      <button>Войти</button><button type="button" id="logout">Выйти</button></form>
+  </section>
+  <section>
+    <h2>Создать или изменить задачу</h2>
+    <form id="task"><input id="recordId" type="hidden"><input id="version" type="hidden">
+      <label>Срок<input id="due_date" type="date" required></label>
+      <label>Заголовок<input id="title" maxlength="160" required></label>
+      <label>Статус<select id="state"><option value="todo">К выполнению</option><option value="doing">В работе</option><option value="done">Готово</option></select></label>
+      <label>Описание<textarea id="description" maxlength="2000"></textarea></label>
+      <button>Сохранить</button><button type="button" id="reset">Очистить форму</button>
+    </form>
+  </section>
+  <section><h2>Задачи</h2><button id="refresh">Обновить список</button><ul id="list"></ul></section>
+  <section><h2>Последний HTTP-ответ</h2><pre id="status" role="status">Войдите в систему.</pre></section>
+  <script src="/browser.js"></script>
+</body></html>

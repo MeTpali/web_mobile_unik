@@ -1,0 +1,196 @@
+Launching lib/main.dart on TrustPhoneT1 Aurora OS 5.2.1.200 (arm) in debug mode...
+Building Aurora application...                                  
+Mounting system directories...
+Mounting /home/topg/AuroraPlatformSDK/targets as /srv/mer/targets
+Mounting /home/topg/AuroraPlatformSDK/toolings as /srv/mer/toolings
+Mounting / as /parentroot
+Mounting home directory: /home/topg
+Last login: Sun Oct 25 17:04:31 UTC 2026
+NOTICE: Using the 'AuroraOS-5.2.1.200-base-armv7hl.default' snapshot of the build target
+Loading repository data...
+Reading installed packages...
+'ninja' is already installed.
+No update candidate for 'ninja-1.10.2+git3-1.1.5.omp.armv7hl'. The highest available version is already installed.
+'cmake' is already installed.
+No update candidate for 'cmake-3.19.3+git9-1.2.6.omp.armv7hl'. The highest available version is already installed.
+Resolving package dependencies...
+Nothing to do.
+Building target platforms: armv7hl-meego-linux
+Building for target armv7hl-meego-linux
+Executing(%build): /bin/sh -e /var/tmp/rpm-tmp.zyEHzH
++ umask 022
++ cd /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug
++ LANG=C
++ export LANG
++ unset DISPLAY
++ CFLAGS='-g -pipe -D_FILE_OFFSET_BITS=64 -Wp,-U_FORTIFY_SOURCE,-D_FORTIFY_SOURCE=3 -specs=/usr/lib/rpm/aurora/pie-pic-cc1 -fstack-protector-strong --param=ssp-buffer-size=4 -fexceptions -O2 -Wall -Wformat -Wformat-security -fmessage-length=0 -march=armv7-a -mfloat-abi=hard -mfpu=neon -mthumb -Wno-psabi'
++ export CFLAGS
++ CXXFLAGS='-g -pipe -D_FILE_OFFSET_BITS=64 -Wp,-U_FORTIFY_SOURCE,-D_FORTIFY_SOURCE=3 -specs=/usr/lib/rpm/aurora/pie-pic-cc1 -fstack-protector-strong --param=ssp-buffer-size=4 -fexceptions -O2 -Wall -Wformat -Wformat-security -fmessage-length=0 -march=armv7-a -mfloat-abi=hard -mfpu=neon -mthumb -Wno-psabi'
++ export CXXFLAGS
++ FFLAGS='-g -pipe -D_FILE_OFFSET_BITS=64 -Wp,-U_FORTIFY_SOURCE,-D_FORTIFY_SOURCE=3 -specs=/usr/lib/rpm/aurora/pie-pic-cc1 -fstack-protector-strong --param=ssp-buffer-size=4 -fexceptions -O2 -Wall -Wformat -Wformat-security -fmessage-length=0 -march=armv7-a -mfloat-abi=hard -mfpu=neon -mthumb -Wno-psabi -I/usr/lib/gfortran/modules'
++ export FFLAGS
++ FCFLAGS='-g -pipe -D_FILE_OFFSET_BITS=64 -Wp,-U_FORTIFY_SOURCE,-D_FORTIFY_SOURCE=3 -specs=/usr/lib/rpm/aurora/pie-pic-cc1 -fstack-protector-strong --param=ssp-buffer-size=4 -fexceptions -O2 -Wall -Wformat -Wformat-security -fmessage-length=0 -march=armv7-a -mfloat-abi=hard -mfpu=neon -mthumb -Wno-psabi -I/usr/lib/gfortran/modules'
++ export FCFLAGS
++ LDFLAGS='-Wl,--as-needed -specs=/usr/lib/rpm/aurora/pie-pic-ld -Wl,-z,relro,-z,now'
++ export LDFLAGS
++ CFLAGS='-g -pipe -D_FILE_OFFSET_BITS=64 -Wp,-U_FORTIFY_SOURCE,-D_FORTIFY_SOURCE=3 -specs=/usr/lib/rpm/aurora/pie-pic-cc1 -fstack-protector-strong --param=ssp-buffer-size=4 -fexceptions -O2 -Wall -Wformat -Wformat-security -fmessage-length=0 -march=armv7-a -mfloat-abi=hard -mfpu=neon -mthumb -Wno-psabi'
++ export CFLAGS
++ CXXFLAGS='-g -pipe -D_FILE_OFFSET_BITS=64 -Wp,-U_FORTIFY_SOURCE,-D_FORTIFY_SOURCE=3 -specs=/usr/lib/rpm/aurora/pie-pic-cc1 -fstack-protector-strong --param=ssp-buffer-size=4 -fexceptions -O2 -Wall -Wformat -Wformat-security -fmessage-length=0 -march=armv7-a -mfloat-abi=hard -mfpu=neon -mthumb -Wno-psabi'
++ export CXXFLAGS
++ FFLAGS='-g -pipe -D_FILE_OFFSET_BITS=64 -Wp,-U_FORTIFY_SOURCE,-D_FORTIFY_SOURCE=3 -specs=/usr/lib/rpm/aurora/pie-pic-cc1 -fstack-protector-strong --param=ssp-buffer-size=4 -fexceptions -O2 -Wall -Wformat -Wformat-security -fmessage-length=0 -march=armv7-a -mfloat-abi=hard -mfpu=neon -mthumb -Wno-psabi -I/usr/lib/gfortran/modules'
++ export FFLAGS
++ cmake -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr -DINCLUDE_INSTALL_DIR:PATH=/usr/include -DLIB_INSTALL_DIR:PATH=lib -DCMAKE_INSTALL_LIBDIR:PATH=lib -DSYSCONF_INSTALL_DIR:PATH=/etc -DSHARE_INSTALL_PREFIX:PATH=/usr/share -DCMAKE_SKIP_RPATH:BOOL=ON -DBUILD_SHARED_LIBS:BOOL=ON -GNinja -DCMAKE_BUILD_TYPE=Debug -DPSDK_VERSION=5.2.1 -DPSDK_MAJOR=5 -DFLUTTER_PROJECT_NAME=ru.kirik.calculator -DFLUTTER_ORG_NAME=ru.kirik
+.mb2/wrappers/cmake: Executing real cmake:
++ /usr/bin/cmake -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr -DINCLUDE_INSTALL_DIR:PATH=/usr/include -DLIB_INSTALL_DIR:PATH=lib -DCMAKE_INSTALL_LIBDIR:PATH=lib -DSYSCONF_INSTALL_DIR:PATH=/etc -DSHARE_INSTALL_PREFIX:PATH=/usr/share -DCMAKE_SKIP_RPATH:BOOL=ON -DBUILD_SHARED_LIBS:BOOL=ON -GNinja -DCMAKE_BUILD_TYPE=Debug -DPSDK_VERSION=5.2.1 -DPSDK_MAJOR=5 -DFLUTTER_PROJECT_NAME=ru.kirik.calculator -DFLUTTER_ORG_NAME=ru.kirik /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/aurora
+-- The CXX compiler identification is GNU 12.3.1
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found PkgConfig: /usr/bin/pkg-config (found version "0.29.2") 
+-- Checking for module 'appdir-cpp'
+--   Found appdir-cpp, version 2.0.12
+-- Target CPU Name: armv7hl
+-- Found aurora_embedder: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/aurora/flutter/ephemeral/.aurora_plugin_symlinks/aurora_embedder/aurora/armv7hl/libaurora_embedder.so  
+-- Configuring done
+-- Generating done
+CMake Warning:
+  Manually-specified variables were not used by the project:
+
+    FLUTTER_ORG_NAME
+    INCLUDE_INSTALL_DIR
+    LIB_INSTALL_DIR
+    PSDK_MAJOR
+    PSDK_VERSION
+    SHARE_INSTALL_PREFIX
+    SYSCONF_INSTALL_DIR
+
+
+-- Build files have been written to: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug
++ /usr/bin/ninja -v -j16
+[1/4] cd /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug && /usr/bin/cmake -E copy /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/aurora/flutter/ephemeral/.aurora_plugin_symlinks/aurora_embedder/aurora/armv7hl/libaurora_embedder.so /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/bundle/lib/libaurora_embedder.so
+[2/4] /usr/bin/c++  -I/home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/aurora/flutter -isystem /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/aurora/flutter/ephemeral/.aurora_plugin_symlinks/aurora_embedder/aurora/include -isystem /usr/include/appdir-cpp -isystem /usr/include/appdir -isystem /usr/include/appmanifest-glib -isystem /usr/include/glib-2.0 -isystem /usr/lib/glib-2.0/include -Wall -Wextra -g -std=gnu++17 -MD -MT CMakeFiles/ru.kirik.calculator.dir/main.cpp.o -MF CMakeFiles/ru.kirik.calculator.dir/main.cpp.o.d -o CMakeFiles/ru.kirik.calculator.dir/main.cpp.o -c /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/aurora/main.cpp
+[3/4] /usr/bin/c++  -I/home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/aurora/flutter -isystem /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/aurora/flutter/ephemeral/.aurora_plugin_symlinks/aurora_embedder/aurora/include -isystem /usr/include/appdir-cpp -isystem /usr/include/appdir -isystem /usr/include/appmanifest-glib -isystem /usr/include/glib-2.0 -isystem /usr/lib/glib-2.0/include -Wall -Wextra -g -std=gnu++17 -MD -MT CMakeFiles/ru.kirik.calculator.dir/flutter/generated_plugin_registrant.cpp.o -MF CMakeFiles/ru.kirik.calculator.dir/flutter/generated_plugin_registrant.cpp.o.d -o CMakeFiles/ru.kirik.calculator.dir/flutter/generated_plugin_registrant.cpp.o -c /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/aurora/flutter/generated_plugin_registrant.cpp
+[4/4] : && /usr/bin/c++ -Wall -Wextra -g -Wl,--as-needed -specs=/usr/lib/rpm/aurora/pie-pic-ld -Wl,-z,relro,-z,now CMakeFiles/ru.kirik.calculator.dir/main.cpp.o CMakeFiles/ru.kirik.calculator.dir/flutter/generated_plugin_registrant.cpp.o -o ru.kirik.calculator  -Wl,-rpath,::::::::::::::::::::::::::::::::::::::::  /usr/lib/libappdir-cpp.so  /usr/lib/libappdir.so  /usr/lib/libappmanifest-glib.so  /usr/lib/libglib-2.0.so && :
++ RPM_EC=0
+++ jobs -p
++ exit 0
+Executing(%install): /bin/sh -e /var/tmp/rpm-tmp.kdAgm9
++ umask 022
++ cd /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug
++ flock /home/topg/.mb2.lock.lock flock /home/topg/.mb2.lock ln -f /home/topg/.mb2.lock.2RO /home/topg/.mb2.lock
++ '[' /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot '!=' / ']'
++ rm -rf /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot
+++ dirname /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot
++ mkdir -p /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug
++ mkdir /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot
++ LANG=C
++ export LANG
++ unset DISPLAY
++ DESTDIR=/home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot
++ /usr/bin/ninja install -v -j16
+[1/2] cd /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug && /usr/bin/cmake -E copy /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/aurora/flutter/ephemeral/.aurora_plugin_symlinks/aurora_embedder/aurora/armv7hl/libaurora_embedder.so /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/bundle/lib/libaurora_embedder.so
+[1/2] cd /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug && /usr/bin/cmake -P cmake_install.cmake
+-- Install configuration: "Debug"
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/icudtl.dat
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/isolate_snapshot_data
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/AssetManifest.bin
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/vm_snapshot_data
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/fonts
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/fonts/MaterialIcons-Regular.otf
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/shaders
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/shaders/ink_sparkle.frag
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/shaders/stretch_effect.frag
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/.last_build_id
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/FontManifest.json
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/NOTICES.Z
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/packages
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/packages/cupertino_icons
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/packages/cupertino_icons/assets
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/NativeAssetsManifest.json
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/flutter_assets/kernel_blob.bin
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/lib
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/lib/libaurora_embedder.so
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/ru.kirik.calculator/lib/libflutter_engine.so
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/bin/ru.kirik.calculator
+-- Set runtime path of "/home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/bin/ru.kirik.calculator" to "$ORIGIN/../share/ru.kirik.calculator/lib"
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/applications/ru.kirik.calculator.desktop
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/icons/hicolor/86x86/apps/ru.kirik.calculator.png
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/icons/hicolor/108x108/apps/ru.kirik.calculator.png
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/icons/hicolor/128x128/apps/ru.kirik.calculator.png
+-- Installing: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot/usr/share/icons/hicolor/172x172/apps/ru.kirik.calculator.png
++ /usr/lib/rpm/check-buildroot
++ /usr/lib/rpm/meego/brp-compress
++ /usr/lib/rpm/meego/brp-strip /bin/true
++ /usr/lib/rpm/meego/brp-strip-shared /bin/true
++ /usr/lib/rpm/meego/brp-strip-static-archive /bin/true
++ /usr/lib/rpm/meego/brp-strip-comment-note /bin/true /usr/bin/objdump
++ /usr/lib/rpm/brp-python-bytecompile '%{__python}'
++ /usr/lib/rpm/brp-python-hardlink
++ /usr/lib/rpm/meego/find-docs.sh /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot
++ /usr/lib/rpm/meego/brp-java-repack-jars
+Processing files: ru.kirik.calculator-1.0.0+1-1.armv7hl
+Provides: application() application(ru.kirik.calculator.desktop) ru.kirik.calculator = 1.0.0+1-1 ru.kirik.calculator(armv7hl-32) = 1.0.0+1-1
+Requires(rpmlib): rpmlib(CompressedFileNames) <= 3.0.4-1 rpmlib(FileDigests) <= 4.6.0-1 rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+Requires: ld-linux-armhf.so.3 ld-linux-armhf.so.3(GLIBC_2.4) libEGL.so.1 libGLESv2.so.2 libappdir.so.2 libc.so.6 libc.so.6(GLIBC_2.10) libc.so.6(GLIBC_2.16) libc.so.6(GLIBC_2.17) libc.so.6(GLIBC_2.18) libc.so.6(GLIBC_2.27) libc.so.6(GLIBC_2.28) libc.so.6(GLIBC_2.32) libc.so.6(GLIBC_2.33) libc.so.6(GLIBC_2.34) libc.so.6(GLIBC_2.38) libc.so.6(GLIBC_2.4) libc.so.6(GLIBC_2.6) libc.so.6(GLIBC_2.7) libc.so.6(GLIBC_2.8) libc.so.6(GLIBC_2.9) libfontconfig.so.1 libgcc_s.so.1 libgcc_s.so.1(GCC_3.5) libglib-2.0.so.0 libgobject-2.0.so.0 libm.so.6 libm.so.6(GLIBC_2.27) libm.so.6(GLIBC_2.29) libm.so.6(GLIBC_2.35) libm.so.6(GLIBC_2.38) libm.so.6(GLIBC_2.4) libstdc++.so.6 libstdc++.so.6(CXXABI_1.3) libstdc++.so.6(CXXABI_1.3.5) libstdc++.so.6(CXXABI_1.3.9) libstdc++.so.6(CXXABI_ARM_1.3.3) libstdc++.so.6(GLIBCXX_3.4) libstdc++.so.6(GLIBCXX_3.4.11) libstdc++.so.6(GLIBCXX_3.4.14) libstdc++.so.6(GLIBCXX_3.4.15) libstdc++.so.6(GLIBCXX_3.4.18) libstdc++.so.6(GLIBCXX_3.4.20) libstdc++.so.6(GLIBCXX_3.4.21) libstdc++.so.6(GLIBCXX_3.4.26) libstdc++.so.6(GLIBCXX_3.4.29) libstdc++.so.6(GLIBCXX_3.4.9) libwayland-client.so.0 libwayland-egl.so.1 rtld(GNU_HASH)
+Checking for unpackaged file(s): /usr/lib/rpm/check-files /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot
+Wrote: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/RPMS/ru.kirik.calculator-1.0.0+1-1.armv7hl.rpm
+Executing(%clean): /bin/sh -e /var/tmp/rpm-tmp.pOH9ss
++ umask 022
++ cd /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug
++ /bin/rm -rf /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/installroot
++ RPM_EC=0
+++ jobs -p
++ exit 0
+============================ rpmlint session starts ============================
+rpmlint: 2.0.0
+configuration:
+    /srv/mer/toolings/AuroraOS-5.2.1.200-base/usr/lib64/python3.8/site-packages/rpmlint/configdefaults.toml
+    /etc/xdg/rpmlint/sailfish.toml
+checks: 25, packages: 1
+
+ru.kirik.calculator.armv7hl: W: unstripped-binary-or-object /usr/bin/ru.kirik.calculator
+ru.kirik.calculator.armv7hl: W: summary-ended-with-dot Лабораторная №1, вариант 1: калькулятор через WebSocket.
+ru.kirik.calculator.armv7hl: W: no-url-tag
+ru.kirik.calculator.armv7hl: E: no-changelogname-tag
+ru.kirik.calculator.armv7hl: W: hidden-file-or-dir /usr/share/ru.kirik.calculator/flutter_assets/.last_build_id
+ru.kirik.calculator.armv7hl: E: arch-dependent-file-in-usr-share /usr/share/ru.kirik.calculator/lib/libaurora_embedder.so
+ru.kirik.calculator.armv7hl: E: arch-dependent-file-in-usr-share /usr/share/ru.kirik.calculator/lib/libflutter_engine.so
+===== 1 packages and 0 specfiles checked; 3 errors, 4 warnings, 3 badness ======
+=== TreatErrorsAsWarnings set in options so returning success instead of 64 ====
+
+┌─ Result ──────────────────────────────────────────────────────────────────────────────────┐
+│ ./build/aurora/psdk_5.2.1/aurora-arm/debug/RPMS/ru.kirik.calculator-1.0.0+1-1.armv7hl.rpm │
+└───────────────────────────────────────────────────────────────────────────────────────────┘
+Successfully install package: /home/topg/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator/build/aurora/psdk_5.2.1/aurora-arm/debug/RPMS/ru.kirik.calculator-1.0.0+1-1.armv7hl.rpm.
+Reply from Control::StartDebug()
+Instance id:   ru.kirik.calculator
+Details:
+Pid888
+RequestorId
+StartReason4
+Warning: "shell none" command in the profile file is done by default; the command will be deprecated
+constructing /run/firejail/mnt/privileged:  ...
+mounting /run/firejail/mnt/privileged @ /home/defaultuser/.local/share/system/privileged
+hiding /run/firejail/mnt/privileged
+[info] [INFO:wayland_output_client.cc(347)] Set screen geometry: 68x152
+[info] [INFO:wayland_output_client.cc(349)] Set screen transform: 0
+[info] [INFO:wayland_output_client.cc(375)] Wayland output state done!
+[warn] ../flutter/fml/logging.cc:162 [WARNING:flutter/shell/platform/aurora/desktop_ini.cc(51)] application desktop file: does not contain a key "Orientation"
+[info] [INFO:view.cc(122)] Onscreen visibility changed by compositor: Maximized
+[warn] ../flutter/fml/logging.cc:162 [WARNING:flutter/shell/platform/aurora/view.cc(100)] View<0x3>: Suggest resize: 720x1600
+[info] [INFO:view.cc(432)] Window creating begins..
+[warn] ../flutter/fml/logging.cc:162 [WARNING:flutter/shell/platform/aurora/view.cc(444)] Create window: 720x1600
+[info] [INFO:view.cc(459)] Window creating complete!
+[warn] ../flutter/fml/logging.cc:162 [WARNING:flutter/shell/platform/aurora/view.cc(100)] View<0x3>: Suggest resize: 720x1600
+[info] [INFO:view.cc(432)] Window creating begins..
+[info] [INFO:flutter_aurora_engine.cc(158)] Engine creating begins...
+[warn] ../flutter/fml/logging.cc:162 [WARNING:flutter/shell/platform/aurora/utils/dconf_value.cc(64)] Cannot get value '/desktop/jolla/theme/font/sizeCategory'
+[info] [INFO:flutter_aurora_engine.cc(262)] Engine creating complete!
+Check vm service connection at http://127.0.0.1:45055/Jnma67ehkRM=/. Attempt 1
+Connection to vm service established.
+Syncing files to device TrustPhoneT1 Aurora OS 5.2.1.200 (arm)...         89ms
+Lost connection to device.

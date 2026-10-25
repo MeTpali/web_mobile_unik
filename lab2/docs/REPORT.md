@@ -1,0 +1,1330 @@
+## ОТЧЁТ
+
+## по лабораторной работе №2
+
+## REST API, HTTPS и offline-клиент на Aurora OS
+
+## Вариант №6 — Расходы
+
+Данные титульного листа заполняются студентом.
+
+## 1. Задание
+
+Часть 1. Серверная часть на ПК. Реализовать REST API с версионированием, например через /api/v1/. Поддержать CRUD-операции GET, POST, PUT или PATCH и DELETE. Использовать JSON как формат обмена. Возвращать корректные коды состояний 200, 201, 204, 400, 401, 403, 404 и 500. Настроить заголовки Content-Type, Accept, Host и User-Agent. Реализовать аутентификацию через JWT или cookie. Настроить HTTPS с самоподписанным сертификатом. Добавить кэширование через ETag, Cache-Control и Last-Modified. Задокументировать API через OpenAPI или Swagger.
+
+Часть 2. Вспомогательная браузерная часть на мобильном устройстве. Открыть Swagger UI или тестовую HTML-страницу в браузере на ПК. Выполнить через неё основные запросы к API: создание, чтение, обновление и удаление. Подключить телефон Аврора к той же сети. Открыть ту же страницу в браузере на Аврора. Убедиться, что запросы к API работают с мобильного браузера.
+
+Часть 3. Основная нативная часть на мобильном устройстве. Разработать нативное приложение на Qt, QML и C++ для ОС Аврора. Реализовать асинхронные HTTP-запросы через QNetworkAccessManager. Реализовать парсинг JSON через QJsonDocument, QJsonObject и QJsonArray. Реализовать хранение токена или cookie между сессиями через QSettings и QNetworkCookieJar. Реализовать локальный кэш на SQLite через QtSql для offline-режима. Реализовать CRUD-операции через REST API. Обрабатывать ошибки сети, таймауты, коды 4xx и 5xx. Продемонстрировать на телефоне полный CRUD-цикл, работу offline с показом кэшированных данных, восстановление сети и синхронизацию, а также обработку ошибок.
+
+Вариант №6: Расходы. Сервер хранит расходы с полями дата, категория, сумма, комментарий. Приложение позволяет создавать, просматривать, редактировать и удалять расходы, работать offline и синхронизироваться.
+
+## 2. Выполнение
+
+Сервер реализован на FastAPI с SQLite и REST API /api/v1/. Клиент — Qt 5.6, QML Silica и C++11 для Авроры 5.2.1.200, armv7hl. Транспорт — HTTPS. Аутентификация — JWT с сохранением токена в QSettings. Сумма хранится целым числом копеек.
+
+Клиент разделён на интерфейс, контроллер, HTTP-сервис и SQLite-хранилище. Offline-изменения сохраняются в очереди. При восстановлении связи операции отправляются с неизменными ключами идемпотентности. Версии предотвращают молчаливую перезапись конфликтующих правок. Удаления учитываются через tombstones. Кэш обновляется условными запросами с ETag.
+
+Самостоятельное приложение «Расходы · ЛР2» использует пакет com.example.expenseslab2. Оно устанавливается одновременно с клиентом другой лабораторной. QSettings, локальная SQLite-база и offline-очередь изолированы; данные прежнего пакета com.example.expenses автоматически не переносятся.
+
+## 2.1. Основные файлы
+
+## backend/app/schemas.py
+
+Схемы JSON и правила валидации.
+
+```
+from datetime import date as Date
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
+class Input(BaseModel):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+
+class Login(Input):
+    username: str = Field(min_length=1, max_length=80)
+    password: str = Field(min_length=1, max_length=256)
+
+class ExpenseFields(Input):
+    date: Date
+    category: str = Field(min_length=1, max_length=80)
+    amount_minor: int = Field(strict=True, gt=0, le=1_000_000_000_00)
+    comment: str = Field(default='', max_length=2000)
+
+class ExpenseCreate(ExpenseFields):
+    id: UUID
+
+class ExpensePatch(Input):
+    date: Date | None = None
+    category: str | None = Field(default=None, min_length=1, max_length=80)
+    amount_minor: int | None = Field(default=None, strict=True, gt=0, le=1_000_000_000_00)
+    comment: str | None = Field(default=None, max_length=2000)
+```
+
+## backend/app/storage.py
+
+Таблицы SQLite, транзакции и хеширование паролей.
+
+```
+import hashlib
+import os
+import secrets
+import sqlite3
+from contextlib import contextmanager
+from pathlib import Path
+
+def password_hash(password: str, salt: str) -> str:
+    return hashlib.pbkdf2_hmac('sha256', password.encode(), bytes.fromhex(salt), 200_000).hex()
+
+class Database:
+    def __init__(self, path: Path):
+        self.path = path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with self.connect() as db:
+            db.executescript('''
+                CREATE TABLE IF NOT EXISTS users (
+                  username TEXT PRIMARY KEY, salt TEXT NOT NULL,
+                  password_hash TEXT NOT NULL, role TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS expenses (
+                  id TEXT PRIMARY KEY, owner TEXT NOT NULL, date TEXT NOT NULL,
+                  category TEXT NOT NULL, amount_minor INTEGER NOT NULL,
+                  comment TEXT NOT NULL, version INTEGER NOT NULL,
+                  updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0);
+                CREATE TABLE IF NOT EXISTS operations (
+                  owner TEXT NOT NULL, key TEXT NOT NULL, fingerprint TEXT NOT NULL,
+                  status INTEGER NOT NULL, response TEXT,
+                  PRIMARY KEY(owner, key));
+            ''')
+
+            for name, role in [('demo', 'writer'), ('viewer', 'reader')]:
+                salt = secrets.token_hex(16)
+                password = os.getenv('LAB_DEMO_PASSWORD', 'demo12345')
+                db.execute('INSERT OR IGNORE INTO users VALUES (?,?,?,?)',
+                           (name, salt, password_hash(password, salt), role))
+
+    @contextmanager
+    def connect(self):
+        db = sqlite3.connect(self.path, timeout=10)
+        db.row_factory = sqlite3.Row
+        try:
+
+            db.execute('BEGIN IMMEDIATE')
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+```
+
+## backend/app/main.py
+
+REST API v1, JWT, права доступа, версии, кэширование и повторы операций.
+
+```
+import hashlib
+import hmac
+import json
+import logging
+import os
+import secrets
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime, parsedate_to_datetime
+from pathlib import Path
+from uuid import UUID
+
+import jwt
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.openapi.utils import get_openapi
+
+from .schemas import ExpenseCreate, ExpensePatch, Login
+from .storage import Database, password_hash
+
+ROOT = Path(__file__).resolve().parents[1]
+bearer = HTTPBearer(auto_error=False)
+
+def now():
+    return datetime.now(timezone.utc).isoformat(timespec='microseconds')
+
+def expense(row):
+    result = dict(row)
+    result.pop('owner', None)
+    result['deleted'] = bool(result['deleted'])
+    return result
+
+def create_app(db_path=None, secret=None):
+    data = Path(db_path).parent if db_path else ROOT / 'data'
+    data.mkdir(parents=True, exist_ok=True)
+
+    keyfile = data / 'jwt.key'
+    if secret is None:
+        if not keyfile.exists():
+            try:
+                with open(keyfile, 'x', opener=lambda p, f: os.open(p, f, 0o600)) as f:
+                    f.write(secrets.token_hex(32))
+            except FileExistsError:
+                pass
+        secret = keyfile.read_text().strip()
+    db = Database(Path(db_path) if db_path else data / 'expenses.sqlite')
+    app = FastAPI(title='Учёт расходов — лабораторная №2', version='1.0.0',
+        description='Сумма в копейках. Для мутаций нужен Idempotency-Key; для PATCH/DELETE — If-Match с версией в кавычках.',
+        responses={code: {'description': text} for code, text in {
+            400: 'Некорректные данные', 401: 'Требуется вход', 403: 'Недостаточно прав',
+            404: 'Запись не найдена', 409: 'Конфликт версии или ключа операции',
+            415: 'Требуется application/json', 500: 'Внутренняя ошибка сервера'}.items()})
+    app.state.db = db
+    app.state.secret = secret
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request, exc):
+        return JSONResponse(status_code=400, content={'detail': 'Некорректные поля запроса',
+            'fields': [{'field': '.'.join(map(str, e['loc'])), 'message': e['msg']} for e in exc.errors()]})
+
+    @app.exception_handler(Exception)
+    async def unexpected_error(request, exc):
+        logging.exception('Ошибка обработки API', exc_info=exc)
+        return JSONResponse(status_code=500, content={'detail': 'Внутренняя ошибка сервера'})
+
+    @app.middleware('http')
+    async def headers(request, call_next):
+        if request.method in ('POST', 'PATCH') and request.url.path.startswith('/api/'):
+            if request.headers.get('content-type', '').split(';')[0].strip() != 'application/json':
+                return JSONResponse(status_code=415, content={'detail': 'Требуется application/json'})
+        response = await call_next(request)
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        if 'cache-control' not in response.headers:
+            response.headers['Cache-Control'] = 'no-store'
+        return response
+
+    def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        try:
+            if credentials is None:
+                raise ValueError()
+            payload = jwt.decode(credentials.credentials, secret, algorithms=['HS256'],
+                                 options={'require': ['exp', 'sub']})
+            with db.connect() as conn:
+                row = conn.execute('SELECT * FROM users WHERE username=?', (payload['sub'],)).fetchone()
+            if row is None:
+                raise ValueError()
+            return dict(row)
+        except (ValueError, jwt.PyJWTError):
+            raise HTTPException(401, 'Войдите заново: токен отсутствует или истёк',
+                                headers={'WWW-Authenticate': 'Bearer'})
+
+    def writer(user=Depends(current_user)):
+        if user['role'] != 'writer':
+            raise HTTPException(403, 'Этому пользователю доступно только чтение')
+        return user
+
+    @app.get('/health')
+    def health():
+        return {'status': 'ok'}
+
+    @app.get('/', include_in_schema=False)
+    def browser():
+        return FileResponse(ROOT / 'static' / 'index.html')
+
+    @app.get('/browser.js', include_in_schema=False)
+    def script():
+        return FileResponse(ROOT / 'static' / 'browser.js', media_type='application/javascript')
+
+    @app.post('/api/v1/auth/login')
+    def login(body: Login):
+        with db.connect() as conn:
+            row = conn.execute('SELECT * FROM users WHERE username=?', (body.username,)).fetchone()
+        salt = row['salt'] if row else '00' * 16
+        checked = password_hash(body.password, salt)
+        if not row or not hmac.compare_digest(checked, row['password_hash']):
+            raise HTTPException(401, 'Неправильное имя пользователя или пароль',
+                                headers={'WWW-Authenticate': 'Bearer'})
+        token = jwt.encode({'sub': row['username'], 'exp': datetime.now(timezone.utc) + timedelta(hours=8)},
+                           secret, algorithm='HS256')
+        return {'access_token': token, 'token_type': 'bearer', 'username': row['username']}
+
+    def cached(request, records, single=False):
+
+        encoded = json.dumps(records, ensure_ascii=False, sort_keys=True)
+        etag = '"' + hashlib.sha256(encoded.encode()).hexdigest() + '"'
+        if single:
+            etag = '"' + str(records[0]['version']) + '"'
+        latest = max((r['updated_at'] for r in records), default='1970-01-01T00:00:00+00:00')
+        modified = datetime.fromisoformat(latest).replace(microsecond=0)
+        hdr = {'ETag': etag, 'Last-Modified': format_datetime(modified, usegmt=True),
+               'Cache-Control': 'private, no-cache', 'Vary': 'Authorization'}
+        match = request.headers.get('if-none-match')
+        unchanged = match is not None and any(t.strip().removeprefix('W/') in (etag, '*') for t in match.split(','))
+
+        if match is None and request.headers.get('if-modified-since'):
+            try:
+                unchanged = datetime.fromisoformat(latest) <= parsedate_to_datetime(request.headers['if-modified-since'])
+            except (ValueError, TypeError):
+                pass
+        if unchanged:
+            return Response(status_code=304, headers=hdr)
+        return JSONResponse(content=records[0] if single else records, headers=hdr)
+
+    @app.get('/api/v1/expenses', responses={304: {'description': 'Кэш актуален, тело отсутствует'}})
+    def listing(request: Request, include_deleted: bool = False, user=Depends(current_user)):
+        with db.connect() as conn:
+            rows = conn.execute('SELECT * FROM expenses WHERE owner=? ORDER BY date DESC,id', (user['username'],)).fetchall()
+        records = [expense(r) for r in rows if include_deleted or not r['deleted']]
+        return cached(request, records)
+
+    def owned(conn, record_id, user):
+        row = conn.execute('SELECT * FROM expenses WHERE id=?', (str(record_id),)).fetchone()
+        if row is None or row['owner'] != user['username']:
+            raise HTTPException(404, 'Расход не найден')
+        return row
+
+    @app.get('/api/v1/expenses/{record_id}', responses={304: {'description': 'Кэш актуален, тело отсутствует'}})
+    def get_one(record_id: UUID, request: Request, user=Depends(current_user)):
+        with db.connect() as conn:
+            row = owned(conn, record_id, user)
+        if row['deleted']:
+            raise HTTPException(404, 'Расход удалён')
+        return cached(request, [expense(row)], single=True)
+
+    def replay(conn, key, fingerprint, user):
+        if not key or len(key) > 128:
+            raise HTTPException(400, 'Укажите Idempotency-Key длиной до 128 символов')
+        row = conn.execute('SELECT * FROM operations WHERE owner=? AND key=?', (user['username'], key)).fetchone()
+        if row:
+            if row['fingerprint'] != fingerprint:
+                raise HTTPException(409, 'Этот Idempotency-Key уже использован с другим запросом')
+            return Response(status_code=204) if row['status'] == 204 else JSONResponse(json.loads(row['response']), status_code=row['status'])
+
+    def receipt(conn, key, fingerprint, user, status, result):
+        conn.execute('INSERT INTO operations VALUES (?,?,?,?,?)',
+                     (user['username'], key, fingerprint, status, json.dumps(result)))
+        return Response(status_code=204) if status == 204 else JSONResponse(result, status_code=status)
+
+    @app.post('/api/v1/expenses', status_code=201)
+    def create(body: ExpenseCreate, user=Depends(writer), idempotency_key: str = Header(default='')):
+        values = body.model_dump(mode='json')
+        fp = 'POST:' + json.dumps(values, sort_keys=True)
+        with db.connect() as conn:
+            old = replay(conn, idempotency_key, fp, user)
+            if old is not None:
+                return old
+            if conn.execute('SELECT 1 FROM expenses WHERE id=?', (values['id'],)).fetchone():
+                raise HTTPException(409, 'UUID уже существует')
+            conn.execute('INSERT INTO expenses VALUES (?,?,?,?,?,?,?,?,0)',
+                (values['id'], user['username'], values['date'], values['category'],
+                 values['amount_minor'], values['comment'], 1, now()))
+            result = expense(owned(conn, body.id, user))
+            response = receipt(conn, idempotency_key, fp, user, 201, result)
+            response.headers['Location'] = '/api/v1/expenses/' + values['id']
+            return response
+
+    def check_version(row, supplied):
+        if supplied != '"' + str(row['version']) + '"':
+            raise HTTPException(409, {'message': 'Запись изменилась на сервере', 'server': expense(row)})
+
+    @app.patch('/api/v1/expenses/{record_id}')
+    def update(record_id: UUID, body: ExpensePatch, user=Depends(writer),
+               idempotency_key: str = Header(default=''), if_match: str = Header(default='')):
+        changes = body.model_dump(mode='json', exclude_unset=True)
+        if not changes or any(v is None for v in changes.values()):
+            raise HTTPException(400, 'Передайте непустой набор полей без null')
+        fp = f'PATCH:{record_id}:{if_match}:' + json.dumps(changes, sort_keys=True)
+        with db.connect() as conn:
+            old = replay(conn, idempotency_key, fp, user)
+            if old is not None:
+                return old
+            row = owned(conn, record_id, user)
+            check_version(row, if_match)
+            if row['deleted']:
+                raise HTTPException(409, {'message': 'Расход удалён на сервере', 'server': expense(row)})
+            merged = dict(row) | changes
+            conn.execute('UPDATE expenses SET date=?,category=?,amount_minor=?,comment=?,version=version+1,updated_at=? WHERE id=?',
+                         (merged['date'], merged['category'], merged['amount_minor'], merged['comment'], now(), str(record_id)))
+            return receipt(conn, idempotency_key, fp, user, 200, expense(owned(conn, record_id, user)))
+
+    @app.delete('/api/v1/expenses/{record_id}', status_code=204)
+    def delete(record_id: UUID, user=Depends(writer), idempotency_key: str = Header(default=''),
+               if_match: str = Header(default='')):
+        fp = f'DELETE:{record_id}:{if_match}'
+        with db.connect() as conn:
+            old = replay(conn, idempotency_key, fp, user)
+            if old is not None:
+                return old
+            row = owned(conn, record_id, user)
+            check_version(row, if_match)
+            conn.execute('UPDATE expenses SET deleted=1,version=version+1,updated_at=? WHERE id=?', (now(), str(record_id)))
+            return receipt(conn, idempotency_key, fp, user, 204, None)
+
+    def openapi():
+        if app.openapi_schema is None:
+            schema = get_openapi(title=app.title, version=app.version, description=app.description, routes=app.routes)
+
+            for path in schema['paths'].values():
+                for operation in path.values():
+                    if isinstance(operation, dict):
+                        operation.get('responses', {}).pop('422', None)
+            app.openapi_schema = schema
+        return app.openapi_schema
+    app.openapi = openapi
+    return app
+```
+
+## backend/run.py
+
+Запуск HTTPS-сервера Uvicorn.
+
+```
+import os
+from pathlib import Path
+
+import uvicorn
+from app.main import create_app
+
+if __name__ == '__main__':
+    certs = Path(__file__).resolve().parents[1] / 'certificates'
+    uvicorn.run(create_app(), host='0.0.0.0', port=int(os.getenv('PORT', '8443')),
+                ssl_keyfile=str(certs / 'server.key'), ssl_certfile=str(certs / 'server.crt'))
+```
+
+## backend/static/index.html
+
+Адаптивная вспомогательная браузерная форма.
+
+```
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Учёт расходов — REST API</title>
+  <style>
+    body{font:17px sans-serif;max-width:850px;margin:auto;padding:18px;background:#f1f5f9;color:#152535}
+    section{background:white;padding:18px;border-radius:12px;margin:14px 0}label{display:block;margin:10px 0}
+    input,textarea,button{box-sizing:border-box;font:inherit;padding:10px;max-width:100%}input,textarea{width:100%}
+    button{margin:5px;min-height:44px}pre{white-space:pre-wrap;overflow-wrap:anywhere}li{padding:12px 0}
+    @media(max-width:500px){body{padding:8px}section{padding:12px}button{width:100%;margin:5px 0}}
+  </style>
+</head>
+<body>
+  <h1>Учёт расходов</h1>
+  <p>Тестовая страница REST API v1. Все ресурсы загружаются с этого сервера. <a href="/docs">Swagger UI</a></p>
+  <section>
+    <h2>Вход</h2>
+    <form id="login"><label>Пользователь<input id="username" value="demo" required autocomplete="username"></label>
+      <label>Пароль<input id="password" type="password" required autocomplete="current-password"></label>
+      <button>Войти</button><button type="button" id="logout">Выйти</button></form>
+  </section>
+  <section>
+    <h2>Создать или изменить расход</h2>
+    <form id="expense"><input id="recordId" type="hidden"><input id="version" type="hidden">
+      <label>Дата<input id="date" type="date" required></label>
+      <label>Категория<input id="category" maxlength="80" required></label>
+      <label>Сумма, руб.<input id="amount" type="text" inputmode="decimal" placeholder="125.50" required></label>
+      <label>Комментарий<textarea id="comment" maxlength="2000"></textarea></label>
+      <button>Сохранить</button><button type="button" id="reset">Очистить форму</button>
+    </form>
+  </section>
+  <section><h2>Расходы</h2><button id="refresh">Обновить список</button><ul id="list"></ul></section>
+  <section><h2>Последний HTTP-ответ</h2><pre id="status" role="status">Войдите в систему.</pre></section>
+  <script src="/browser.js"></script>
+</body></html>
+```
+
+## backend/static/browser.js
+
+Вход и браузерный CRUD через XMLHttpRequest.
+
+```
+(function () {
+  'use strict';
+  var token = '', busy = false;
+  function el(id) { return document.getElementById(id); }
+  function uuid() {
+    var bytes = new Uint8Array(16);
+    window.crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
+    var hex = [];
+    for (var i = 0; i < 16; i++) hex.push(('0' + bytes[i].toString(16)).slice(-2));
+    return hex.slice(0, 4).join('') + '-' + hex.slice(4, 6).join('') + '-' + hex.slice(6, 8).join('') + '-' + hex.slice(8, 10).join('') + '-' + hex.slice(10).join('');
+  }
+  function request(method, path, data, version, callback) {
+    if (busy) { el('status').textContent = 'Дождитесь завершения запроса'; return; }
+    busy = true;
+    var xhr = new XMLHttpRequest();
+    xhr.open(method, '/api/v1/' + path); xhr.timeout = 10000;
+    xhr.setRequestHeader('Accept', 'application/json');
+    if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+    if (data) xhr.setRequestHeader('Content-Type', 'application/json');
+    if (method !== 'GET') xhr.setRequestHeader('Idempotency-Key', uuid());
+    if (version) xhr.setRequestHeader('If-Match', '"' + version + '"');
+    xhr.onload = function () {
+      busy = false;
+      var body = null;
+      try { body = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (e) {                                       }
+      el('status').textContent = method + ' ' + path + '\nHTTP ' + xhr.status + '\n' + xhr.getAllResponseHeaders() + '\n' + xhr.responseText;
+      if (xhr.status >= 200 && xhr.status < 300 && callback) callback(body);
+    };
+    xhr.onerror = xhr.ontimeout = function () { busy = false; el('status').textContent = 'Нет связи, ошибка TLS или тайм-аут. Обновите список перед повтором операции.'; };
+    xhr.send(data ? JSON.stringify(data) : null);
+  }
+  function clear() { el('expense').reset(); el('recordId').value = ''; el('version').value = ''; el('date').value = new Date().toISOString().slice(0, 10); }
+  function refresh() {
+    request('GET', 'expenses', null, null, function (rows) {
+      el('list').textContent = '';
+      rows.forEach(function (row) {
+        var li = document.createElement('li');
+        var text = document.createElement('div');
+        text.textContent = row.date + ' · ' + row.category + ' · ' + (row.amount_minor / 100).toFixed(2) + ' руб. · ' + row.comment;
+        li.appendChild(text);
+        var edit = document.createElement('button'); edit.textContent = 'Изменить';
+        edit.onclick = function () {
+          el('recordId').value = row.id; el('version').value = row.version;
+          el('date').value = row.date; el('category').value = row.category;
+          el('amount').value = (row.amount_minor / 100).toFixed(2); el('comment').value = row.comment;
+          el('expense').scrollIntoView();
+        };
+        var remove = document.createElement('button'); remove.textContent = 'Удалить';
+        remove.onclick = function () { if (window.confirm('Удалить расход?')) request('DELETE', 'expenses/' + row.id, null, row.version, refresh); };
+        li.appendChild(edit); li.appendChild(remove); el('list').appendChild(li);
+      });
+    });
+  }
+  el('login').onsubmit = function (event) {
+    event.preventDefault();
+    request('POST', 'auth/login', {username: el('username').value, password: el('password').value}, null, function (body) {
+      token = body.access_token; el('password').value = ''; refresh();
+    });
+  };
+  el('expense').onsubmit = function (event) {
+    event.preventDefault();
+    var value = el('amount').value.trim().replace(',', '.');
+    if (!/^\d+(\.\d{1,2})?$/.test(value)) { el('status').textContent = 'Введите положительную сумму с точностью до копеек'; return; }
+    var parts = value.split('.');
+    var data = {date: el('date').value, category: el('category').value,
+      amount_minor: Number(parts[0]) * 100 + Number(((parts[1] || '') + '00').slice(0, 2)), comment: el('comment').value};
+    var id = el('recordId').value;
+    if (!id) data.id = uuid();
+    request(id ? 'PATCH' : 'POST', id ? 'expenses/' + id : 'expenses', data, el('version').value, function () { clear(); refresh(); });
+  };
+  el('logout').onclick = function () { token = ''; el('list').textContent = ''; clear(); el('status').textContent = 'Вы вышли'; };
+  el('refresh').onclick = refresh; el('reset').onclick = clear; clear();
+}());
+```
+
+## client/src/main.cpp
+
+Точка входа нативного приложения и создание зависимостей.
+
+```
+#include <auroraapp.h>
+#include <QGuiApplication>
+#include <QQmlContext>
+#include <QQuickView>
+#include <QDir>
+#include <QDebug>
+#include "expensecontroller.h"
+
+int main(int argc, char *argv[]) {
+    QScopedPointer<QGuiApplication> app(Aurora::Application::application(argc, argv));
+    app->setOrganizationName("com.example");
+    app->setApplicationName("expenseslab2");
+    try {
+        const QString data = Aurora::Application::filesDir().absolutePath();
+        QDir().mkpath(data);
+        ExpenseController controller(data);
+        QScopedPointer<QQuickView> view(Aurora::Application::createView());
+        view->rootContext()->setContextProperty("expensesController", &controller);
+        view->setSource(Aurora::Application::pathTo("qml/com.example.expenseslab2.qml"));
+        if (view->status() == QQuickView::Error) return 1;
+        view->show();
+        return app->exec();
+    } catch (const std::exception &e) {
+        qCritical() << "Не удалось открыть локальную базу:" << e.what();
+        return 1;
+    }
+}
+```
+
+## client/src/apiclient.h
+
+Интерфейс HTTP-транспорта и структура ответа.
+
+```
+#pragma once
+#include <QJsonDocument>
+#include <QNetworkAccessManager>
+#include <QUrl>
+#include <functional>
+
+struct ApiResult {
+    int status = 0;
+    QJsonDocument json;
+    QString error;
+    QByteArray etag;
+    QByteArray modified;
+    bool ok() const { return status >= 200 && status < 300 && error.isEmpty(); }
+};
+
+class ApiClient : public QObject {
+    Q_OBJECT
+public:
+    explicit ApiClient(QObject *parent = nullptr);
+    QString baseUrl, token, certificatePath;
+    void request(const QByteArray &method, const QString &path, const QJsonObject &body,
+                 const QByteArray &key, int version, const QByteArray &etag,
+                 std::function<void(ApiResult)> done);
+private:
+    QNetworkAccessManager manager;
+};
+```
+
+## client/src/apiclient.cpp
+
+Асинхронный HTTPS, сертификат, заголовки, JSON и таймаут.
+
+```
+#include "apiclient.h"
+#include <QBuffer>
+#include <QFile>
+#include <QJsonObject>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QSslCertificate>
+#include <QSslConfiguration>
+#include <QSslSocket>
+#include <QTimer>
+
+ApiClient::ApiClient(QObject *parent) : QObject(parent), manager(this) {}
+
+void ApiClient::request(const QByteArray &method, const QString &path, const QJsonObject &body,
+                        const QByteArray &key, int version, const QByteArray &etag,
+                        std::function<void(ApiResult)> done) {
+    QNetworkRequest req(QUrl(baseUrl + path));
+    req.setRawHeader("Accept", "application/json");
+    req.setRawHeader("User-Agent", "AuroraExpenses/1.0 Qt/5.6");
+    if (!token.isEmpty()) req.setRawHeader("Authorization", "Bearer " + token.toUtf8());
+    if (!key.isEmpty()) req.setRawHeader("Idempotency-Key", key);
+    if (version > 0) req.setRawHeader("If-Match", "\"" + QByteArray::number(version) + "\"");
+    if (!etag.isEmpty()) req.setRawHeader("If-None-Match", etag);
+
+    auto ssl = QSslConfiguration::defaultConfiguration();
+    auto trusted = ssl.caCertificates();
+    trusted.append(QSslCertificate::fromPath(certificatePath));
+    ssl.setCaCertificates(trusted);
+    req.setSslConfiguration(ssl);
+    QByteArray bytes;
+    if (!body.isEmpty()) {
+        req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        bytes = QJsonDocument(body).toJson(QJsonDocument::Compact);
+    }
+
+    auto *buffer = new QBuffer(&manager);
+    buffer->setData(bytes);
+    buffer->open(QIODevice::ReadOnly);
+    auto *reply = manager.sendCustomRequest(req, method, buffer);
+    buffer->setParent(reply);
+
+    auto *timer = new QTimer(reply);
+    timer->setSingleShot(true);
+    connect(timer, &QTimer::timeout, reply, [reply]() {
+        reply->setProperty("timedOut", true);
+        reply->abort();
+    });
+    timer->start(10000);
+    connect(reply, &QNetworkReply::finished, this, [reply, timer, done]() {
+        timer->stop();
+        ApiResult result;
+        result.status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        result.etag = reply->rawHeader("ETag");
+        result.modified = reply->rawHeader("Last-Modified");
+        const auto bytes = reply->readAll();
+        QJsonParseError parse;
+        result.json = QJsonDocument::fromJson(bytes, &parse);
+        if (reply->property("timedOut").toBool()) result.error = "Превышено время ожидания (10 с)";
+        else if (result.status == 0) result.error = reply->errorString();
+        else if (result.status >= 400) {
+            const auto detail = result.json.object().value("detail");
+            result.error = detail.isString() ? detail.toString() : "Ошибка HTTP " + QString::number(result.status);
+        } else if (result.status != 204 && result.status != 304 && parse.error != QJsonParseError::NoError) {
+            result.error = "Сервер вернул некорректный JSON";
+        }
+        reply->deleteLater();
+        done(result);
+    });
+}
+```
+
+## client/src/localstore.h
+
+Интерфейс локального хранилища и очереди.
+
+```
+#pragma once
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QSqlDatabase>
+#include <QString>
+
+class LocalStore {
+public:
+    explicit LocalStore(const QString &path);
+    ~LocalStore();
+    QString scope;
+    QJsonArray items() const;
+    QJsonObject item(const QString &id) const;
+    QJsonObject operation(const QString &id = QString()) const;
+    int pending() const;
+    void enqueue(QJsonObject item, const QString &kind);
+    void attempted(const QString &id);
+    void acknowledge(const QString &id, const QJsonObject &server);
+    void conflict(const QString &id, const QJsonObject &server);
+    void resolve(const QString &id, bool keepLocal);
+    void snapshot(const QJsonArray &rows, const QByteArray &etag);
+    QByteArray etag() const;
+private:
+    QSqlDatabase db;
+    QString connectionName;
+    void putItem(const QJsonObject &item);
+};
+```
+
+## client/src/localstore.cpp
+
+SQLite-кэш, транзакции, offline-операции и разрешение конфликтов.
+
+```
+#include "localstore.h"
+#include <QJsonDocument>
+#include <QSqlError>
+#include <QSqlQuery>
+#include <QUuid>
+#include <QVariant>
+#include <stdexcept>
+
+namespace {
+QByteArray encode(const QJsonObject &o) { return QJsonDocument(o).toJson(QJsonDocument::Compact); }
+QJsonObject decode(const QVariant &v) { return QJsonDocument::fromJson(v.toByteArray()).object(); }
+QString uuid() { return QUuid::createUuid().toString().remove('{').remove('}'); }
+void check(bool ok, const QSqlQuery &q) {
+    if (!ok) throw std::runtime_error(q.lastError().text().toStdString());
+}
+
+class Transaction {
+    QSqlDatabase &db;
+    bool committed = false;
+public:
+    explicit Transaction(QSqlDatabase &d) : db(d) {
+        if (!db.transaction()) throw std::runtime_error(db.lastError().text().toStdString());
+    }
+    void commit() {
+        if (!db.commit()) throw std::runtime_error(db.lastError().text().toStdString());
+        committed = true;
+    }
+    ~Transaction() { if (!committed) db.rollback(); }
+};
+}
+
+LocalStore::LocalStore(const QString &path) : connectionName("expenses-" + uuid()) {
+    db = QSqlDatabase::addDatabase("QSQLITE", connectionName);
+    db.setDatabaseName(path);
+    if (!db.open()) throw std::runtime_error(db.lastError().text().toStdString());
+    QSqlQuery q(db);
+    check(q.exec("CREATE TABLE IF NOT EXISTS items(scope TEXT,id TEXT,json BLOB,PRIMARY KEY(scope,id))"), q);
+    check(q.exec("CREATE TABLE IF NOT EXISTS outbox(scope TEXT,id TEXT,json BLOB,PRIMARY KEY(scope,id))"), q);
+    check(q.exec("CREATE TABLE IF NOT EXISTS validators(scope TEXT PRIMARY KEY,etag BLOB)"), q);
+}
+LocalStore::~LocalStore() {
+    db.close(); db = QSqlDatabase(); QSqlDatabase::removeDatabase(connectionName);
+}
+QJsonArray LocalStore::items() const {
+    QSqlQuery q(db); q.prepare("SELECT json FROM items WHERE scope=? ORDER BY id"); q.addBindValue(scope); check(q.exec(), q);
+    QJsonArray result;
+    while (q.next()) {
+        auto row = decode(q.value(0));
+        if (row.value("deleted").toBool()) continue;
+        auto op = operation(row.value("id").toString());
+        row["pending"] = !op.isEmpty();
+        row["conflict"] = op.contains("server");
+        result.append(row);
+    }
+    return result;
+}
+QJsonObject LocalStore::item(const QString &id) const {
+    QSqlQuery q(db); q.prepare("SELECT json FROM items WHERE scope=? AND id=?"); q.addBindValue(scope); q.addBindValue(id); check(q.exec(), q);
+    return q.next() ? decode(q.value(0)) : QJsonObject();
+}
+QJsonObject LocalStore::operation(const QString &id) const {
+    QSqlQuery q(db);
+    q.prepare(id.isEmpty() ? "SELECT json FROM outbox WHERE scope=? ORDER BY rowid LIMIT 1" : "SELECT json FROM outbox WHERE scope=? AND id=?");
+    q.addBindValue(scope); if (!id.isEmpty()) q.addBindValue(id); check(q.exec(), q);
+    return q.next() ? decode(q.value(0)) : QJsonObject();
+}
+int LocalStore::pending() const {
+    QSqlQuery q(db); q.prepare("SELECT count(*) FROM outbox WHERE scope=?"); q.addBindValue(scope); check(q.exec(), q); q.next(); return q.value(0).toInt();
+}
+void LocalStore::putItem(const QJsonObject &row) {
+    QSqlQuery q(db); q.prepare("INSERT OR REPLACE INTO items VALUES (?,?,?)");
+    q.addBindValue(scope); q.addBindValue(row.value("id").toString()); q.addBindValue(encode(row)); check(q.exec(), q);
+}
+void LocalStore::enqueue(QJsonObject row, const QString &kind) {
+    const auto id = row.value("id").toString();
+    auto op = operation(id);
+    if (op.value("attempted").toBool() || op.contains("server"))
+        throw std::runtime_error("Сначала синхронизируйте ранее отправленную операцию или разрешите конфликт");
+    Transaction tx(db);
+    QSqlQuery q(db);
+
+    if (kind == "DELETE" && op.value("kind").toString() == "POST") {
+        q.prepare("DELETE FROM items WHERE scope=? AND id=?"); q.addBindValue(scope); q.addBindValue(id); check(q.exec(), q);
+        q.prepare("DELETE FROM outbox WHERE scope=? AND id=?"); q.addBindValue(scope); q.addBindValue(id); check(q.exec(), q);
+    } else {
+        row["deleted"] = kind == "DELETE";
+        putItem(row);
+        if (op.isEmpty()) {
+            op["id"] = id; op["key"] = uuid(); op["kind"] = kind; op["version"] = row.value("version");
+        } else if (kind == "DELETE") op["kind"] = kind;
+        op["payload"] = row;
+        q.prepare("INSERT OR REPLACE INTO outbox VALUES (?,?,?)"); q.addBindValue(scope); q.addBindValue(id); q.addBindValue(encode(op)); check(q.exec(), q);
+    }
+    tx.commit();
+}
+void LocalStore::attempted(const QString &id) {
+    auto op = operation(id); op["attempted"] = true;
+    QSqlQuery q(db); q.prepare("UPDATE outbox SET json=? WHERE scope=? AND id=?");
+    q.addBindValue(encode(op)); q.addBindValue(scope); q.addBindValue(id); check(q.exec(), q);
+}
+void LocalStore::acknowledge(const QString &id, const QJsonObject &server) {
+    Transaction tx(db);
+    QSqlQuery q(db); q.prepare("DELETE FROM outbox WHERE scope=? AND id=?"); q.addBindValue(scope); q.addBindValue(id); check(q.exec(), q);
+    q.prepare("DELETE FROM validators WHERE scope=?"); q.addBindValue(scope); check(q.exec(), q);
+    if (server.isEmpty()) {
+        q.prepare("DELETE FROM items WHERE scope=? AND id=?"); q.addBindValue(scope); q.addBindValue(id); check(q.exec(), q);
+    } else putItem(server);
+    tx.commit();
+}
+void LocalStore::conflict(const QString &id, const QJsonObject &server) {
+    auto op = operation(id); op["server"] = server;
+    QSqlQuery q(db); q.prepare("UPDATE outbox SET json=? WHERE scope=? AND id=?");
+    q.addBindValue(encode(op)); q.addBindValue(scope); q.addBindValue(id); check(q.exec(), q);
+}
+void LocalStore::resolve(const QString &id, bool keepLocal) {
+    auto op = operation(id);
+    if (!op.contains("server")) return;
+    const auto server = op.value("server").toObject();
+    auto local = op.value("payload").toObject();
+
+    Transaction tx(db);
+    QSqlQuery q(db);
+    q.prepare("DELETE FROM outbox WHERE scope=? AND id=?"); q.addBindValue(scope); q.addBindValue(id); check(q.exec(), q);
+    putItem(server);
+    if (keepLocal && !(server.value("deleted").toBool() && op.value("kind").toString() == "DELETE")) {
+        QString kind = op.value("kind").toString() == "DELETE" ? "DELETE" : "PATCH";
+        local["version"] = server.value("version");
+        if (server.value("deleted").toBool()) {
+            kind = "POST"; local["id"] = uuid(); local["version"] = 0;
+        }
+        local["deleted"] = kind == "DELETE";
+        putItem(local);
+        const QJsonObject replacement{{"id", local.value("id")}, {"key", uuid()}, {"kind", kind},
+                                      {"version", local.value("version")}, {"payload", local}};
+        q.prepare("INSERT INTO outbox VALUES (?,?,?)"); q.addBindValue(scope);
+        q.addBindValue(local.value("id").toString()); q.addBindValue(encode(replacement)); check(q.exec(), q);
+    }
+    q.prepare("DELETE FROM validators WHERE scope=?"); q.addBindValue(scope); check(q.exec(), q);
+    tx.commit();
+}
+void LocalStore::snapshot(const QJsonArray &rows, const QByteArray &value) {
+
+    if (pending()) throw std::runtime_error("Нельзя заменить кэш при непустой очереди");
+    Transaction tx(db);
+    QSqlQuery q(db); q.prepare("DELETE FROM items WHERE scope=?"); q.addBindValue(scope); check(q.exec(), q);
+    for (const auto &v : rows) putItem(v.toObject());
+    q.prepare("INSERT OR REPLACE INTO validators VALUES (?,?)"); q.addBindValue(scope); q.addBindValue(value); check(q.exec(), q);
+    tx.commit();
+}
+QByteArray LocalStore::etag() const {
+    QSqlQuery q(db); q.prepare("SELECT etag FROM validators WHERE scope=?"); q.addBindValue(scope); check(q.exec(), q);
+    return q.next() ? q.value(0).toByteArray() : QByteArray();
+}
+```
+
+## client/src/expensecontroller.h
+
+Свойства и действия, доступные интерфейсу QML.
+
+```
+#pragma once
+#include "apiclient.h"
+#include "localstore.h"
+#include <QSettings>
+#include <QTimer>
+#include <QVariantList>
+
+class ExpenseController : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(QVariantList expenses READ expenses NOTIFY changed)
+    Q_PROPERTY(int pendingCount READ pendingCount NOTIFY changed)
+    Q_PROPERTY(QString status READ status NOTIFY changed)
+    Q_PROPERTY(bool busy READ busy NOTIFY changed)
+    Q_PROPERTY(bool authenticated READ authenticated NOTIFY changed)
+    Q_PROPERTY(bool offline READ offline WRITE setOffline NOTIFY changed)
+    Q_PROPERTY(QString serverUrl READ serverUrl NOTIFY changed)
+    Q_PROPERTY(QString username READ username NOTIFY changed)
+    Q_PROPERTY(QString certificatePath READ certificatePath NOTIFY changed)
+    Q_PROPERTY(QVariantMap conflictInfo READ conflictInfo NOTIFY changed)
+public:
+    explicit ExpenseController(const QString &dataDir, QObject *parent = nullptr);
+    QVariantList expenses() const { return store.items().toVariantList(); }
+    int pendingCount() const { return store.pending(); }
+    QString status() const { return message; }
+    bool busy() const { return running; }
+    bool authenticated() const { return !api.token.isEmpty(); }
+    bool offline() const { return offlineMode; }
+    QString serverUrl() const { return api.baseUrl; }
+    QString username() const { return account; }
+    QString certificatePath() const { return api.certificatePath; }
+    QVariantMap conflictInfo() const;
+    Q_INVOKABLE void login(QString url, QString user, QString password, QString cert);
+    Q_INVOKABLE void logout();
+    Q_INVOKABLE void sync();
+    Q_INVOKABLE bool save(QString id, QString date, QString category, QString amount, QString comment);
+    Q_INVOKABLE void remove(QString id);
+    Q_INVOKABLE void resolve(bool keepLocal);
+    void setOffline(bool value);
+signals:
+    void changed();
+private:
+    ApiClient api;
+    LocalStore store;
+    QSettings settings;
+    QTimer retry;
+    QString account, message;
+    bool running = false, offlineMode = false;
+    void next();
+    void failed(const ApiResult &result);
+    void finish(QString text);
+    void configureScope();
+};
+```
+
+## client/src/expensecontroller.cpp
+
+Бизнес-правила, сессия и последовательность синхронизации.
+
+```
+#include "expensecontroller.h"
+#include <QDate>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QRegularExpression>
+#include <QUrl>
+#include <QUuid>
+
+ExpenseController::ExpenseController(const QString &dataDir, QObject *parent)
+    : QObject(parent), api(this), store(dataDir + "/expenses.sqlite") {
+    api.baseUrl = settings.value("server", "https://192.168.0.118:8443").toString();
+    api.certificatePath = settings.value("certificate", "/usr/share/com.example.expenseslab2/certificates/server.crt").toString();
+    account = settings.value("username", "demo").toString();
+    api.token = settings.value("token").toString();
+    offlineMode = settings.value("offline", false).toBool();
+    configureScope();
+    message = "Показаны сохранённые данные. Нажмите «Синхронизировать».";
+
+    retry.setInterval(30000);
+    connect(&retry, &QTimer::timeout, this, &ExpenseController::sync);
+    retry.start();
+}
+
+void ExpenseController::configureScope() {
+    store.scope = api.baseUrl + "\n" + account;
+}
+
+void ExpenseController::login(QString url, QString user, QString password, QString cert) {
+    if (running || offlineMode) return;
+    url = url.trimmed();
+    while (url.endsWith('/')) url.chop(1);
+    const QUrl parsed(url);
+    if (!parsed.isValid() || parsed.scheme() != "https" || parsed.host().isEmpty()
+        || !parsed.userInfo().isEmpty() || !parsed.query().isEmpty() || !parsed.fragment().isEmpty()
+        || (!parsed.path().isEmpty() && parsed.path() != "/")) {
+        finish("Адрес должен иметь вид https://<IP-ПК>:8443"); return;
+    }
+    if (user.trimmed().isEmpty() || password.isEmpty()) { finish("Введите логин и пароль"); return; }
+    running = true; message = "Вход…"; emit changed();
+    const auto oldUrl = api.baseUrl, oldCert = api.certificatePath, oldToken = api.token;
+    api.baseUrl = url; api.certificatePath = cert.trimmed(); api.token.clear();
+    api.request("POST", "/api/v1/auth/login", {{"username", user.trimmed()}, {"password", password}}, {}, 0, {},
+        [this, user, oldUrl, oldCert, oldToken](ApiResult result) {
+        if (!result.ok() || !result.json.object().value("access_token").isString()) {
+            api.baseUrl = oldUrl; api.certificatePath = oldCert; api.token = oldToken;
+            finish("Не удалось войти: " + result.error); return;
+        }
+        account = user.trimmed(); api.token = result.json.object().value("access_token").toString();
+        settings.setValue("server", api.baseUrl); settings.setValue("certificate", api.certificatePath);
+        settings.setValue("username", account); settings.setValue("token", api.token); settings.sync();
+        configureScope(); running = false; emit changed(); sync();
+    });
+}
+
+void ExpenseController::logout() {
+    if (running) return;
+    api.token.clear(); settings.remove("token"); settings.sync();
+
+    finish("Вы вышли. Локальные данные сохранены для следующего входа.");
+}
+
+void ExpenseController::setOffline(bool value) {
+    if (running) return;
+    offlineMode = value; settings.setValue("offline", value); settings.sync(); emit changed();
+    if (value) finish("Offline: изменения сохраняются только на телефоне"); else sync();
+}
+
+void ExpenseController::finish(QString text) {
+    running = false; message = text; emit changed();
+}
+void ExpenseController::failed(const ApiResult &result) {
+    if (result.status == 401) {
+        api.token.clear(); settings.remove("token"); settings.sync();
+        finish("Сессия истекла. Войдите заново; очередь изменений сохранена.");
+    } else finish(result.error + ". Локальные данные и очередь сохранены.");
+}
+
+void ExpenseController::sync() {
+    if (running || offlineMode || !authenticated()) return;
+    running = true; message = "Синхронизация…"; emit changed();
+    next();
+}
+void ExpenseController::next() {
+    try {
+        const auto op = store.operation();
+        if (op.contains("server")) { finish("Конфликт: выберите локальную или серверную версию"); return; }
+        if (op.isEmpty()) {
+            api.request("GET", "/api/v1/expenses?include_deleted=true", {}, {}, 0, store.etag(), [this](ApiResult r) {
+                try {
+                    if (r.status == 304) { finish("Данные актуальны (HTTP 304)"); return; }
+                    if (!r.ok()) { failed(r); return; }
+                    if (!r.json.isArray()) { finish("Ошибка: вместо списка получен другой JSON"); return; }
+                    store.snapshot(r.json.array(), r.etag);
+                    finish("Синхронизация завершена");
+                } catch (const std::exception &e) { finish(QString::fromUtf8(e.what())); }
+            });
+            return;
+        }
+        const auto id = op.value("id").toString();
+        const auto kind = op.value("kind").toString();
+        const auto payload = op.value("payload").toObject();
+        QJsonObject body;
+        if (kind != "DELETE") {
+            for (const auto &key : {"date", "category", "amount_minor", "comment"}) body[key] = payload.value(key);
+            if (kind == "POST") body["id"] = id;
+        }
+        store.attempted(id);
+        api.request(kind.toUtf8(), "/api/v1/expenses" + (kind == "POST" ? QString() : "/" + id), body,
+                    op.value("key").toString().toUtf8(), op.value("version").toInt(), {},
+                    [this, id, kind](ApiResult r) {
+            try {
+                if (r.status == 409) {
+                    const auto server = r.json.object().value("detail").toObject().value("server").toObject();
+                    if (!server.isEmpty()) store.conflict(id, server);
+                    finish("Конфликт изменений. Выберите версию в блоке синхронизации."); return;
+                }
+                if (!r.ok()) { failed(r); return; }
+                if (kind != "DELETE" && (!r.json.isObject() || r.json.object().value("id").toString() != id)) {
+                    finish("Неверный ответ сервера: операция сохранена для повтора"); return;
+                }
+                store.acknowledge(id, kind == "DELETE" ? QJsonObject() : r.json.object());
+                emit changed(); next();
+            } catch (const std::exception &e) { finish(QString::fromUtf8(e.what())); }
+        });
+    } catch (const std::exception &e) { finish(QString::fromUtf8(e.what())); }
+}
+
+bool ExpenseController::save(QString id, QString date, QString category, QString amount, QString comment) {
+    if (running || !authenticated()) return false;
+    const auto parsedDate = QDate::fromString(date, Qt::ISODate);
+    const auto match = QRegularExpression("^([0-9]{1,10})(?:[.,]([0-9]{1,2}))?$").match(amount.trimmed());
+    if (!parsedDate.isValid() || parsedDate.toString(Qt::ISODate) != date || !match.hasMatch()
+        || category.trimmed().isEmpty() || category.trimmed().size() > 80 || comment.size() > 2000) {
+        finish("Проверьте дату YYYY-MM-DD, категорию, сумму и длину комментария"); return false;
+    }
+    const qint64 minor = match.captured(1).toLongLong() * 100 + match.captured(2).leftJustified(2, '0').toInt();
+    if (minor <= 0 || minor > 100000000000LL) { finish("Сумма должна быть больше 0 и не больше 1 000 000 000 рублей"); return false; }
+    try {
+        auto row = id.isEmpty() ? QJsonObject() : store.item(id);
+        const bool created = id.isEmpty();
+        if (created) { id = QUuid::createUuid().toString().remove('{').remove('}'); row["version"] = 0; }
+        else if (row.isEmpty() || row.value("deleted").toBool()) { finish("Расход больше не существует"); return false; }
+        row["id"] = id; row["date"] = date; row["category"] = category.trimmed();
+        row["amount_minor"] = static_cast<double>(minor); row["comment"] = comment.trimmed();
+        store.enqueue(row, created ? "POST" : "PATCH");
+        finish("Изменения сохранены на телефоне"); sync(); return true;
+    } catch (const std::exception &e) { finish(QString::fromUtf8(e.what())); return false; }
+}
+void ExpenseController::remove(QString id) {
+    if (running || !authenticated()) return;
+    try {
+        auto row = store.item(id);
+        if (row.isEmpty()) return;
+        store.enqueue(row, "DELETE"); finish("Удаление сохранено на телефоне"); sync();
+    } catch (const std::exception &e) { finish(QString::fromUtf8(e.what())); }
+}
+QVariantMap ExpenseController::conflictInfo() const {
+    const auto op = store.operation();
+    return op.contains("server") ? op.toVariantMap() : QVariantMap();
+}
+void ExpenseController::resolve(bool keepLocal) {
+    if (running) return;
+    try {
+        const auto op = store.operation();
+        if (!op.contains("server")) return;
+        store.resolve(op.value("id").toString(), keepLocal);
+        finish("Конфликт разрешён"); sync();
+    } catch (const std::exception &e) { finish(QString::fromUtf8(e.what())); }
+}
+```
+
+## client/qml/com.example.expenseslab2.qml
+
+Корневое окно приложения и обложка.
+
+```
+import QtQuick 2.0
+import Sailfish.Silica 1.0
+
+ApplicationWindow {
+    id: app
+    initialPage: Component { MainPage {} }
+    cover: Component {
+        CoverBackground {
+            Label { anchors.centerIn: parent; text: "Расходы · ЛР2\n" + expensesController.pendingCount + " в очереди"; horizontalAlignment: Text.AlignHCenter }
+        }
+    }
+}
+```
+
+## client/qml/MainPage.qml
+
+Вход, настройки, список, статусы и выбор версии при конфликте.
+
+```
+import QtQuick 2.0
+import Sailfish.Silica 1.0
+
+Page {
+    id: page
+    allowedOrientations: Orientation.All
+    property var controller: expensesController
+    SilicaListView {
+        id: list
+        anchors.fill: parent
+        model: controller.expenses
+        PullDownMenu {
+            MenuItem { text: "Новый расход"; enabled: !controller.busy && controller.authenticated; onClicked: pageStack.push(Qt.resolvedUrl("ExpenseDialog.qml")) }
+            MenuItem { text: "Синхронизировать"; enabled: !controller.busy && controller.authenticated && !controller.offline; onClicked: controller.sync() }
+        }
+        header: Column {
+            width: list.width
+            PageHeader { title: "Расходы · ЛР2"; description: "REST · HTTPS · SQLite" }
+            SectionHeader { text: "Сервер и вход" }
+            TextField { id: server; width: parent.width; label: "HTTPS-адрес ПК"; text: controller.serverUrl; enabled: !controller.busy; inputMethodHints: Qt.ImhUrlCharactersOnly }
+            TextField { id: user; width: parent.width; label: "Пользователь"; text: controller.username; enabled: !controller.busy }
+            PasswordField { id: password; width: parent.width; label: "Пароль"; enabled: !controller.busy }
+            TextField { id: cert; width: parent.width; label: "Путь к доверенному сертификату"; text: controller.certificatePath; enabled: !controller.busy }
+            Button {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Войти"; enabled: !controller.busy && !controller.offline
+                onClicked: { controller.login(server.text, user.text, password.text, cert.text); password.text = "" }
+            }
+            Button {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Выйти"; enabled: !controller.busy && controller.authenticated
+                onClicked: controller.logout()
+            }
+            TextSwitch { text: "Работать offline"; description: "Не отправлять запросы, сохранять изменения на телефоне"; checked: controller.offline; enabled: !controller.busy; onClicked: controller.offline = checked }
+            Label {
+                x: Theme.horizontalPageMargin; width: parent.width - 2*x
+                text: controller.status; wrapMode: Text.Wrap; color: Theme.highlightColor
+            }
+            BusyIndicator { anchors.horizontalCenter: parent.horizontalCenter; size: BusyIndicatorSize.Medium; running: controller.busy; visible: running }
+            Label {
+                x: Theme.horizontalPageMargin; width: parent.width - 2*x
+                text: "Изменений в очереди: " + controller.pendingCount; wrapMode: Text.Wrap
+            }
+            Column {
+                width: parent.width
+                visible: !!controller.conflictInfo.server
+                SectionHeader { text: "Конфликт изменений" }
+                Label {
+                    x: Theme.horizontalPageMargin; width: parent.width - 2*x; wrapMode: Text.Wrap
+                    text: {
+                        var info = controller.conflictInfo
+                        if (!info.server) return ""
+                        var s = info.server, l = info.payload
+                        return "Локально: " + l.date + " · " + l.category + " · " + (l.amount_minor/100).toFixed(2) + " ₽ · " + l.comment + (info.kind === "DELETE" ? " (удаление)" : "") +
+                                "\nНа сервере: " + s.date + " · " + s.category + " · " + (s.amount_minor/100).toFixed(2) + " ₽ · " + s.comment + (s.deleted ? " (удалено)" : "")
+                    }
+                }
+                Button { text: "Принять серверную"; anchors.horizontalCenter: parent.horizontalCenter; enabled: !controller.busy; onClicked: controller.resolve(false) }
+                Button { text: "Сохранить локальную"; anchors.horizontalCenter: parent.horizontalCenter; enabled: !controller.busy; onClicked: controller.resolve(true) }
+            }
+            Button {
+                anchors.horizontalCenter: parent.horizontalCenter; text: "Новый расход"
+                enabled: !controller.busy && controller.authenticated
+                onClicked: pageStack.push(Qt.resolvedUrl("ExpenseDialog.qml"))
+            }
+            SectionHeader { text: "Сохранённые расходы" }
+            Label { x: Theme.horizontalPageMargin; text: "Пока нет расходов"; visible: list.count === 0 }
+        }
+        delegate: ListItem {
+            id: entry
+            property var row: modelData
+            contentHeight: details.height + 2*Theme.paddingMedium
+            enabled: !controller.busy && controller.authenticated
+            onClicked: pageStack.push(Qt.resolvedUrl("ExpenseDialog.qml"), {record: row})
+            menu: ContextMenu {
+                MenuItem { text: "Редактировать"; onClicked: pageStack.push(Qt.resolvedUrl("ExpenseDialog.qml"), {record: entry.row}) }
+                MenuItem { text: "Удалить"; onClicked: entry.remorseAction("Удаление", function () { controller.remove(entry.row.id) }) }
+            }
+            Column {
+                id: details; x: Theme.horizontalPageMargin; width: parent.width - 2*x; y: Theme.paddingMedium
+                Label { width: parent.width; text: row.date + " · " + row.category; wrapMode: Text.Wrap; color: Theme.highlightColor }
+                Label { width: parent.width; text: (row.amount_minor/100).toFixed(2) + " ₽" + (row.conflict ? " · конфликт" : row.pending ? " · не отправлено" : ""); wrapMode: Text.Wrap }
+                Label { width: parent.width; text: row.comment; visible: text.length > 0; font.pixelSize: Theme.fontSizeSmall; wrapMode: Text.Wrap }
+            }
+        }
+        VerticalScrollDecorator {}
+    }
+}
+```
+
+## client/qml/ExpenseDialog.qml
+
+Форма создания и редактирования расхода.
+
+```
+import QtQuick 2.0
+import Sailfish.Silica 1.0
+
+Page {
+    id: dialog
+    property var record: ({})
+    SilicaFlickable {
+        anchors.fill: parent; contentHeight: fields.height
+        Column {
+            id: fields; width: parent.width
+            PageHeader { title: record.id ? "Редактирование" : "Новый расход" }
+            TextField { id: date; width: parent.width; label: "Дата YYYY-MM-DD"; text: record.date || Qt.formatDate(new Date(), "yyyy-MM-dd") }
+            TextField { id: category; width: parent.width; label: "Категория"; text: record.category || "" }
+            TextField { id: amount; width: parent.width; label: "Сумма, рубли"; inputMethodHints: Qt.ImhFormattedNumbersOnly; text: record.amount_minor ? (record.amount_minor/100).toFixed(2) : "" }
+            TextArea { id: comment; width: parent.width; label: "Комментарий"; text: record.comment || "" }
+            Button {
+                text: "Сохранить"; anchors.horizontalCenter: parent.horizontalCenter
+                enabled: !expensesController.busy && expensesController.authenticated
+                onClicked: {
+
+                    if (expensesController.save(record.id || "", date.text, category.text, amount.text, comment.text)) pageStack.pop()
+                    else error.text = expensesController.status
+                }
+            }
+            Label { id: error; x: Theme.horizontalPageMargin; width: parent.width - 2*x; wrapMode: Text.Wrap; color: Theme.highlightColor }
+        }
+        VerticalScrollDecorator {}
+    }
+}
+```
+
+## client/com.example.expenseslab2.pro
+
+Модули Qt и установка публичного сертификата.
+
+```
+TARGET = com.example.expenseslab2
+CONFIG += auroraapp c++11
+QT += network sql
+SOURCES += src/main.cpp src/apiclient.cpp src/localstore.cpp src/expensecontroller.cpp
+HEADERS += src/apiclient.h src/localstore.h src/expensecontroller.h
+AURORAAPP_ICONS = 86
+certificates.files = ../certificates/server.crt
+certificates.path = /usr/share/$${TARGET}/certificates
+INSTALLS += certificates
+DISTFILES += rpm/com.example.expenseslab2.spec
+```
+
+## client/com.example.expenseslab2.desktop
+
+Значок запуска и разрешение Internet.
+
+```
+[Desktop Entry]
+Type=Application
+X-Nemo-Application-Type=silica-qt5
+Icon=com.example.expenseslab2
+Exec=/usr/bin/com.example.expenseslab2
+Name=Расходы · ЛР2
+
+[X-Application]
+Permissions=Internet
+OrganizationName=com.example
+ApplicationName=expenseslab2
+ExecDBus=/usr/bin/com.example.expenseslab2
+```
+
+## client/rpm/com.example.expenseslab2.spec
+
+Сборка и упаковка приложения и тестов в RPM.
+
+```
+Name: com.example.expenseslab2
+Summary: Offline expenses — laboratory 2
+Version: 1.0.0
+Release: 2
+License: BSD-3-Clause
+URL: https://developer.auroraos.ru
+Source0: %{name}-%{version}.tar.bz2
+Requires: sailfishsilica-qt5 >= 0.10.9
+Requires: qt5-plugin-sqldriver-sqlite
+BuildRequires: pkgconfig(auroraapp)
+BuildRequires: pkgconfig(Qt5Core)
+BuildRequires: pkgconfig(Qt5Qml)
+BuildRequires: pkgconfig(Qt5Quick)
+BuildRequires: pkgconfig(Qt5Network)
+BuildRequires: pkgconfig(Qt5Sql)
+
+%description
+REST HTTPS client with SQLite cache and persistent offline synchronization.
+
+%prep
+%autosetup
+
+%build
+%qmake5
+make %{?_smp_mflags}
+(cd tests && qmake -qt=5 tests.pro && make %{?_smp_mflags})
+
+%install
+%qmake5_install
+install -Dm755 tests/expenses-tests %{buildroot}%{_bindir}/com.example.expenseslab2-tests
+
+%files
+%defattr(-,root,root,-)
+%{_bindir}/%{name}
+%{_bindir}/com.example.expenseslab2-tests
+%{_datadir}/%{name}
+%{_datadir}/applications/%{name}.desktop
+%{_datadir}/icons/hicolor/*/apps/%{name}.png
+
+%changelog
+* Sun Oct 25 2026 Student <student@example.com> - 1.0.0-1
+- Initial laboratory implementation.
+```
+
+## 2.2. Проверка
+
+После разделения два самостоятельных подписанных RPM одновременно установлены на телефон. Оба интерфейса запускаются; пути ресурсов и локальных баз различаются. Повторные нативные тесты SQLite, HTTPS, offline CRUD, восстановления очереди, конфликтов и ETag прошли. Результат: docs/client-separation-validation.txt. Текущий проверенный адрес сервера — https://192.168.0.104:8443; его следует указать в поле адреса приложения.
+
+Серверные тесты завершились результатом 6 passed. На реальном телефоне прошли нативные проверки SQLite, offline CRUD, сохранения очереди после пересоздания контроллера, HTTPS-синхронизации, разрешения конфликтов и получения 304 по ETag. Подписанный RPM установлен, QML-интерфейс запущен без ошибок загрузки.
+
+Пользователь подтвердил работу входа и полного CRUD на тестовой HTML-странице в браузере Авроры. Сценарий ручной демонстрации интерфейса и отдельной проверки браузера ПК приведён в docs/VALIDATION.md. Снимки экрана запрещены политикой безопасности устройства; демонстрация проводится на самом телефоне.
+
+Команды подготовки сертификата, запуска сервера, сборки и установки клиента приведены в README.md.

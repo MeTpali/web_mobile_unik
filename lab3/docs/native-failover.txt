@@ -1,0 +1,23 @@
+Installing com.example.expenses-2.0.0-8.armv7hl.rpm
+Installation successful
+[I] unknown:0 - PASS SQLite: offline queue, restart, isolation, conflicts, tombstones
+[I] unknown:0 - WATCH WS "Push отключён"
+[I] unknown:0 - WATCH WS "Подключение push…"
+[I] unknown:0 - WATCH WS "Нет push-соединения. Повтор через 1 с"
+[I] unknown:0 - WATCH WS "Подключение push…"
+[I] unknown:0 - WATCH WS "Push: blue-1 · v1.0.2"
+[I] unknown:0 - WATCH WS "Нет push-соединения. Повтор через 1 с"
+[I] unknown:0 - WATCH WS "Подключение push…"
+[I] unknown:0 - WATCH WS "Push: blue-2 · v1.0.2"
+[I] unknown:0 - WATCH PUSH "{\"action\":\"POST\",\"event_id\":\"d0c88dc4-aa18-411c-b833-9fa1fe0442c0\",\"instance\":\"blue-2\",\"record_id\":\"c7fd9abb-2404-4881-9f7a-a7c8cd7aacaa\",\"type\":\"expense.changed\",\"version\":\"1.0.2\"}"
+[I] unknown:0 - WATCH WS "Нет push-соединения. Повтор через 1 с"
+[I] unknown:0 - WATCH WS "Подключение push…"
+[I] unknown:0 - WATCH WS "Push: green-1 · v2.0.2"
+[I] unknown:0 - WATCH PUSH "{\"action\":\"POST\",\"event_id\":\"6c788787-7c66-47bc-aae2-daf61f2b4a5c\",\"instance\":\"green-2\",\"record_id\":\"21405baa-e420-4506-baba-7ed0403f55db\",\"type\":\"expense.changed\",\"version\":\"2.0.2\"}"
+[I] unknown:0 - WATCH WS "Нет push-соединения. Повтор через 1 с"
+[I] unknown:0 - WATCH WS "Подключение push…"
+[I] unknown:0 - WATCH WS "Push: blue-1 · v1.0.2"
+[I] unknown:0 - WATCH PUSH "{\"action\":\"POST\",\"event_id\":\"080802a7-0960-4303-9ebb-a7e8672d9cb7\",\"instance\":\"blue-2\",\"record_id\":\"e63ffa6e-ec3f-4a9f-83b9-c0a5428a8e41\",\"type\":\"expense.changed\",\"version\":\"1.0.2\"}"
+[I] unknown:0 - WATCH WS "Push отключён"
+[I] unknown:0 - WATCH RESULT requests= 161 failures= 0 connections= 4 events= 3
+[I] unknown:0 - PASS native phone: failover, blue-green reconnect, push notifications

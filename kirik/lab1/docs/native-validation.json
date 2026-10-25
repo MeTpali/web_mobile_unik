@@ -1,0 +1,1 @@
+{"passed":true,"checks":["12.5 + 2.0 = 14.5","-5.0 - 2.0 = -7.0","-3.0 * 4.0 = -12.0","7.0 / 2.0 = 3.5","PASS division by zero; connection remains open","PASS validation, history limit, error recovery, reconnect"]}

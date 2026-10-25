@@ -1,0 +1,6 @@
+Фрагмент завершения проверки на ru.kirik.taskslab3-2.0.0-10.armv7hl.
+Старт и промежуточные сообщения наблюдались в терминале; здесь сохранён итог.
+[I] unknown:0 - WATCH PUSH "{\"action\":\"POST\",\"event_id\":\"dd15c29f-43fe-4763-8ae6-6da7e6eb2a56\",\"instance\":\"blue-1\",\"record_id\":\"7c41821a-6033-46b0-85fa-2bb635971151\",\"type\":\"task.changed\",\"version\":\"1.0.0\"}"
+[I] unknown:0 - WATCH WS "Push отключён"
+[I] unknown:0 - WATCH RESULT requests= 140 failures= 1 connections= 5 events= 3
+[I] unknown:0 - PASS native phone: failover, blue-green reconnect, push notifications

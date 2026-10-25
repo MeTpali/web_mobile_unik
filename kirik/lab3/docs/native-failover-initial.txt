@@ -1,0 +1,4 @@
+[I] unknown:0 - PASS SQLite: offline queue, restart, isolation, conflicts, tombstones
+[I] unknown:0 - WATCH WS "Push отключён"
+[I] unknown:0 - WATCH WS "Подключение push…"
+[I] unknown:0 - WATCH WS "Нет push-соединения. Повтор через 1 с"

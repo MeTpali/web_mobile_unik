@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+X-Nemo-Application-Type=silica-qt5
+Icon=ru.kirik.taskslab2
+Exec=/usr/bin/ru.kirik.taskslab2
+Name=Задачи · ЛР2
+
+[X-Application]
+Permissions=Internet
+OrganizationName=ru.kirik
+ApplicationName=taskslab2
+ExecDBus=/usr/bin/ru.kirik.taskslab2

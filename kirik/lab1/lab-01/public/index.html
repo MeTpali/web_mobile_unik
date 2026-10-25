@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Калькулятор</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+
+<body>
+    <main>
+        <h1>Простой калькулятор</h1>
+        <p>Лабораторная №1 · вариант 1</p>
+        <form id="calculator"><label>Первое число<input id="a" inputmode="decimal" value="12.5"
+                    required></label><label>Операция<select id="operation">
+                    <option>+</option>
+                    <option>-</option>
+                    <option>*</option>
+                    <option>/</option>
+                </select></label><label>Второе число<input id="b" inputmode="decimal" value="2" required></label><button
+                id="submit">Вычислить</button></form>
+        <p id="result" aria-live="polite"></p>
+        <p id="error" role="alert"></p>
+    </main>
+    <script src="/api.js"></script>
+    <script src="/app.js"></script>
+</body>
+
+</html>

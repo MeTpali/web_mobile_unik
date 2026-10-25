@@ -1,0 +1,26 @@
+[Unit]
+Description=Tasks backend %i
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=kiriktasks
+Group=kiriktasks
+WorkingDirectory=/opt/kirik-tasks/instances/%i/backend
+EnvironmentFile=/etc/kirik-tasks/common.env
+EnvironmentFile=/etc/kirik-tasks/%i.env
+Environment=INSTANCE_ID=%i
+ExecStart=/opt/kirik-tasks/venv/bin/python -m uvicorn app.entry:app --host 127.0.0.1 --port ${PORT} --proxy-headers --forwarded-allow-ips 127.0.0.1 --timeout-graceful-shutdown 15 --ws websockets --ws-per-message-deflate false --ws-max-size 4096 --ws-ping-interval 15 --ws-ping-timeout 15
+Restart=on-failure
+RestartSec=2
+KillSignal=SIGINT
+TimeoutStopSec=25
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

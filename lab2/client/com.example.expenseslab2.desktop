@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+X-Nemo-Application-Type=silica-qt5
+Icon=com.example.expenseslab2
+Exec=/usr/bin/com.example.expenseslab2
+Name=Расходы · ЛР2
+
+[X-Application]
+Permissions=Internet
+OrganizationName=com.example
+ApplicationName=expenseslab2
+ExecDBus=/usr/bin/com.example.expenseslab2

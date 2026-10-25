@@ -1,0 +1,9 @@
+TEMPLATE = app
+TARGET = expenses-tests
+CONFIG += console c++11
+CONFIG -= app_bundle
+QT += core network sql
+QT -= gui
+INCLUDEPATH += ../src
+SOURCES += core_tests.cpp ../src/localstore.cpp ../src/apiclient.cpp ../src/expensecontroller.cpp
+HEADERS += ../src/localstore.h ../src/apiclient.h ../src/expensecontroller.h

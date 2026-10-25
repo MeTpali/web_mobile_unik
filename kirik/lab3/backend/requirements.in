@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+PyJWT
+psycopg[binary]
+websockets
+httpx
+pytest

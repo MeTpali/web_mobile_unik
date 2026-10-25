@@ -1,0 +1,13 @@
+TARGET = com.example.expenseslab3
+CONFIG += auroraapp c++11
+QT += network sql
+RESOURCES += services.qrc
+SOURCES += src/main.cpp src/apiclient.cpp src/localstore.cpp src/expensecontroller.cpp
+SOURCES += src/pushservice.cpp
+HEADERS += src/apiclient.h src/localstore.h src/expensecontroller.h
+HEADERS += src/pushservice.h
+AURORAAPP_ICONS = 86
+certificates.files = ../certificates/server.crt
+certificates.path = /usr/share/$${TARGET}/certificates
+INSTALLS += certificates
+DISTFILES += rpm/com.example.expenseslab3.spec
