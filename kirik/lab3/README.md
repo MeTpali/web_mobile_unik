@@ -2,7 +2,7 @@
 
 Поля: заголовок `title` (1–160 символов), описание `description` (до 2000), статус `status` (`todo`, `doing`, `done`), срок `due_date` (YYYY-MM-DD). API — `/api/v1/tasks`, создание POST, изменение PATCH, чтение GET, удаление DELETE. JWT, права, ETag, версии и идемпотентность сохранены. UI, контроллер, транспорт и SQLite разделены.
 
-Приложение «Задачи · ЛР3», пакет `ru.kirik.taskslab3`. Оно устанавливается параллельно с ЛР2 и обоими клиентами расходов. Данные не мигрируют из других приложений.
+Приложение «Задачи ЛР3», пакет `ru.kirik.taskslab3`. Оно устанавливается параллельно с ЛР2 и обоими клиентами расходов. Данные не мигрируют из других приложений.
 
 ## Зависимости и сертификат
 
@@ -47,8 +47,8 @@ Green добавляет `/api/v1/summary`: `count`, `done`, `open`. Blue воз
 ```bash
 cd ~/Unik/web_mobile_unik/kirik/lab3
 bash tools/build-client.sh
-scp -O client/RPMS/ru.kirik.taskslab3-2.0.0-10.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
-ssh defaultuser@192.168.2.16 'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/ru.kirik.taskslab3-2.0.0-10.armv7hl.rpm'
+scp -O client/RPMS/ru.kirik.taskslab3-2.0.0-11.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
+ssh defaultuser@192.168.2.16 'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/ru.kirik.taskslab3-2.0.0-11.armv7hl.rpm'
 ```
 
 При смене Version/Release использовать имя из вывода сборщика. Пакет подписывается штатной ключевой парой Aurora SDK и проверяется. Скрипт использует PSDK `~/AuroraPlatformSDK/sdks/aurora_psdk`, target armv7hl; пути меняются через `LAB_PSDK`, `LAB_SDK`, `LAB_TARGET`. При запрете тихой установки убрать `--silent` и подтвердить на телефоне. `devel-su rpm -Uvh` не применять для пользовательского пакета.
@@ -77,3 +77,9 @@ sudo /opt/kirik-tasks/venv/bin/python deploy/scripts/exercise-cluster.py
 ```
 
 Для совместной проверки сначала запустить телефонный `ru.kirik.taskslab3-tests` с теми же URL/сертификатом и дополнительным `--watch`, затем выполнить сценарий на ПК. Подробный порядок — в DEMONSTRATION.md. Только серверный PASS не доказывает восстановление телефона.
+
+## Системные уведомления при работающем приложении
+
+С версии клиента 2.0.0-11 отдельный компонент `client/qml/services/SystemNotification.qml` публикует штатные уведомления Авроры при WSS-событии `task.changed`: «Задача добавлена», «Задача изменена», «Задача удалена». Текст появляется в шторке и передаётся для баннера. Новые изменения заменяют одну запись, дубли и heartbeat игнорируются.
+
+В приложении «Задачи ЛР3» оставить online и подключение к https://192.168.0.104:9543 под demo. На той же браузерной странице создать или изменить задачу: список телефона обновляется и публикуется уведомление. Зависимость Nemo.Notifications включена в RPM, дополнительные desktop-разрешения не добавляются. Видимость баннера определяется настройками ОС; при необходимости проверить шторку. После полного закрытия процесса новых уведомлений не будет: отдельной фоновой службы нет.

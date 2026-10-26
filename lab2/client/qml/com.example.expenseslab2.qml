@@ -6,7 +6,7 @@ ApplicationWindow {
     initialPage: Component { MainPage {} }
     cover: Component {
         CoverBackground {
-            Label { anchors.centerIn: parent; text: "Расходы · ЛР2\n" + expensesController.pendingCount + " в очереди"; horizontalAlignment: Text.AlignHCenter }
+            Label { anchors.centerIn: parent; text: "Расходы ЛР2\n" + expensesController.pendingCount + " в очереди"; horizontalAlignment: Text.AlignHCenter }
         }
     }
 }

@@ -183,7 +183,7 @@ def generate():
                 text += 'nginx принимает HTTPS/WSS на порту 9443 и распределяет запросы между двумя systemd-инстансами. Backend используют общую PostgreSQL и JWT-ключ. PostgreSQL LISTEN/NOTIFY передаёт события между процессами; WSS уведомляет телефон, который перечитывает REST-снимок. Blue-green выполняется с проверкой готовности новой группы, reload nginx и возможностью отката.\n\n'
             validation = old.split('## 2.2. Проверка\n\n', 1)[1].strip()
             if number == 2:
-                validation += '\n\nКоманды запуска:\n\n```bash\ncd ~/Unik/web_mobile_unik/lab2/backend\n.venv/bin/python run.py\n```\n\nНа телефоне открыть приложение «Расходы · ЛР2» и указать https://<IP-ПК>:8443. Учебный вход: demo / demo12345.'
+                validation += '\n\nКоманды запуска:\n\n```bash\ncd ~/Unik/web_mobile_unik/lab2/backend\n.venv/bin/python run.py\n```\n\nНа телефоне открыть приложение «Расходы ЛР2» и указать https://<IP-ПК>:8443. Учебный вход: demo / demo12345.'
             else:
                 validation += '\n\nКоманды переключения версий:\n\n```bash\ncd ~/Unik/web_mobile_unik/lab3\nsudo bash deploy/scripts/switch-release.sh green\nsudo bash deploy/scripts/switch-release.sh blue\n```\n\nЕдиный адрес браузера и приложения: https://<IP-ПК>:9443. Учебный вход: demo / demo12345.'
         text += sources(files) + '\n\n## 2.4. Запуск и проверка\n\n' + validation.strip() + '\n'

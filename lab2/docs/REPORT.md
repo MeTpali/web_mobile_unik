@@ -24,7 +24,7 @@
 
 Клиент разделён на интерфейс, контроллер, HTTP-сервис и SQLite-хранилище. Offline-изменения сохраняются в очереди. При восстановлении связи операции отправляются с неизменными ключами идемпотентности. Версии предотвращают молчаливую перезапись конфликтующих правок. Удаления учитываются через tombstones. Кэш обновляется условными запросами с ETag.
 
-Самостоятельное приложение «Расходы · ЛР2» использует пакет com.example.expenseslab2. Оно устанавливается одновременно с клиентом другой лабораторной. QSettings, локальная SQLite-база и offline-очередь изолированы; данные прежнего пакета com.example.expenses автоматически не переносятся.
+Самостоятельное приложение «Расходы ЛР2» использует пакет com.example.expenseslab2. Оно устанавливается одновременно с клиентом другой лабораторной. QSettings, локальная SQLite-база и offline-очередь изолированы; данные прежнего пакета com.example.expenses автоматически не переносятся.
 
 ## 2.1. Основные файлы
 
@@ -1097,7 +1097,7 @@ ApplicationWindow {
     initialPage: Component { MainPage {} }
     cover: Component {
         CoverBackground {
-            Label { anchors.centerIn: parent; text: "Расходы · ЛР2\n" + expensesController.pendingCount + " в очереди"; horizontalAlignment: Text.AlignHCenter }
+            Label { anchors.centerIn: parent; text: "Расходы ЛР2\n" + expensesController.pendingCount + " в очереди"; horizontalAlignment: Text.AlignHCenter }
         }
     }
 }
@@ -1125,7 +1125,7 @@ Page {
         }
         header: Column {
             width: list.width
-            PageHeader { title: "Расходы · ЛР2"; description: "REST · HTTPS · SQLite" }
+            PageHeader { title: "Расходы ЛР2" }
             SectionHeader { text: "Сервер и вход" }
             TextField { id: server; width: parent.width; label: "HTTPS-адрес ПК"; text: controller.serverUrl; enabled: !controller.busy; inputMethodHints: Qt.ImhUrlCharactersOnly }
             TextField { id: user; width: parent.width; label: "Пользователь"; text: controller.username; enabled: !controller.busy }
@@ -1261,7 +1261,7 @@ Type=Application
 X-Nemo-Application-Type=silica-qt5
 Icon=com.example.expenseslab2
 Exec=/usr/bin/com.example.expenseslab2
-Name=Расходы · ЛР2
+Name=Расходы ЛР2
 
 [X-Application]
 Permissions=Internet
@@ -1278,7 +1278,7 @@ ExecDBus=/usr/bin/com.example.expenseslab2
 Name: com.example.expenseslab2
 Summary: Offline expenses — laboratory 2
 Version: 1.0.0
-Release: 2
+Release: 3
 License: BSD-3-Clause
 URL: https://developer.auroraos.ru
 Source0: %{name}-%{version}.tar.bz2

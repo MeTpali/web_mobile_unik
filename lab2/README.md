@@ -88,20 +88,20 @@ bash tools/build-client.sh
 
 Скрипт использует `~/AuroraPlatformSDK/sdks/aurora_psdk`, target `AuroraOS-5.2.1.200-base-armv7hl`, штатную общедоступную ключевую пару разработчика из `~/AuroraOS/package-signing`. Другие пути можно передать переменными `LAB_PSDK`, `LAB_SDK`, `LAB_TARGET`. Для этой сборки target должен уже содержать зависимости из RPM spec.
 
-Сборка сохраняет журнал `client/build.log`, готовый подписанный пакет — `client/RPMS/com.example.expenseslab2-1.0.0-2.armv7hl.rpm`. В нём есть приложение и отдельный исполняемый файл тестов. Публичный сертификат HTTPS также включён в пакет; серверный закрытый ключ туда не попадает.
+Сборка сохраняет журнал `client/build.log`, готовый подписанный пакет — `client/RPMS/com.example.expenseslab2-1.0.0-3.armv7hl.rpm`. В нём есть приложение и отдельный исполняемый файл тестов. Публичный сертификат HTTPS также включён в пакет; серверный закрытый ключ туда не попадает.
 
 ## 5. Установить и открыть на телефоне
 
 ```bash
 cd ~/Unik/web_mobile_unik/lab2
-scp -O client/RPMS/com.example.expenseslab2-1.0.0-2.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
+scp -O client/RPMS/com.example.expenseslab2-1.0.0-3.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
 ssh defaultuser@192.168.2.16 \
-  'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/com.example.expenseslab2-1.0.0-2.armv7hl.rpm'
+  'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/com.example.expenseslab2-1.0.0-3.armv7hl.rpm'
 ```
 
 Телефон должен быть в режиме разработчика. В этой версии Авроры для обычного приложения используйте **sdk-deploy-rpm**: `devel-su rpm -Uvh` отвергает его как несистемный пакет. Если тихая установка запрещена настройками устройства, используйте `sdk-deploy-rpm --keepUserData ...` без `--silent` и подтвердите установку на телефоне.
 
-Открыть значок **«Расходы · ЛР2»**. Адрес сервера — `https://192.168.0.118:8443`, логин `demo`, пароль `demo12345`. Поле сертификата по умолчанию указывает на `/usr/share/com.example.expenseslab2/certificates/server.crt`. Нажать «Войти».
+Открыть значок **«Расходы ЛР2»**. Адрес сервера — `https://192.168.0.118:8443`, логин `demo`, пароль `demo12345`. Поле сертификата по умолчанию указывает на `/usr/share/com.example.expenseslab2/certificates/server.crt`. Нажать «Войти».
 
 Новый расход — кнопка на экране или верхнее меню. Нажатие на запись открывает редактирование; долгое нажатие — контекстное меню удаления. Сумма вводится в рублях, например `125,50`, а передаётся как `12550` копеек.
 
@@ -156,4 +156,4 @@ python3 tools/build_report.py
 
 ## Независимость клиентов
 
-«Расходы · ЛР2» (`com.example.expenseslab2`) и «Расходы · ЛР3» (`com.example.expenseslab3`) устанавливаются одновременно. Настройки, JWT, SQLite и offline-очередь разделены. Клиент ЛР2 использует HTTPS :8443; клиент ЛР3 — HTTPS/WSS :9443. Старое приложение `com.example.expenses` и его данные остаются на телефоне; автоматический перенос данных не выполняется.
+«Расходы ЛР2» (`com.example.expenseslab2`) и «Расходы · ЛР3» (`com.example.expenseslab3`) устанавливаются одновременно. Настройки, JWT, SQLite и offline-очередь разделены. Клиент ЛР2 использует HTTPS :8443; клиент ЛР3 — HTTPS/WSS :9443. Старое приложение `com.example.expenses` и его данные остаются на телефоне; автоматический перенос данных не выполняется.

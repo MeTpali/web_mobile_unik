@@ -3,7 +3,7 @@ Type=Application
 X-Nemo-Application-Type=silica-qt5
 Icon=com.example.expenseslab3
 Exec=/usr/bin/com.example.expenseslab3
-Name=Расходы · ЛР3
+Name=Расходы ЛР3
 
 [X-Application]
 Permissions=Internet

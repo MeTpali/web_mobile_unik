@@ -15,7 +15,7 @@ Page {
         }
         header: Column {
             width: list.width
-            PageHeader { title: "Задачи · ЛР3"; description: "Лабораторная 3 · HTTPS / WSS" }
+            PageHeader { title: "Задачи ЛР3" }
             SectionHeader { text: "Сервер и вход" }
             TextField { id: server; width: parent.width; label: "HTTPS-адрес ПК"; text: controller.serverUrl; enabled: !controller.busy; inputMethodHints: Qt.ImhUrlCharactersOnly }
             TextField { id: user; width: parent.width; label: "Пользователь"; text: controller.username; enabled: !controller.busy }

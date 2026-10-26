@@ -22,7 +22,9 @@
 
 Сохранены JWT, локальный SQLite-кэш и offline-очередь. Добавлен WSS-сервис с heartbeat и повторами; при уведомлении клиент выполняет REST-синхронизацию. Межпроцессные события передаются через PostgreSQL LISTEN/NOTIFY после COMMIT. Код отделён от настроек инфраструктуры, релизы хранятся в отдельных неизменяемых каталогах. RPM собран через mb2/rpmbuild и подписан штатным rpmsign-external через явную обёртку sign_package.sh.
 
-Самостоятельное приложение «Расходы · ЛР3» использует пакет com.example.expenseslab3. Оно устанавливается одновременно с клиентом другой лабораторной. QSettings, локальная SQLite-база и offline-очередь изолированы; данные прежнего пакета com.example.expenses автоматически не переносятся.
+Самостоятельное приложение «Расходы ЛР3» использует пакет com.example.expenseslab3. Оно устанавливается одновременно с клиентом другой лабораторной. QSettings, локальная SQLite-база и offline-очередь изолированы; данные прежнего пакета com.example.expenses автоматически не переносятся.
+
+При expense.changed отдельный QML-компонент SystemNotification публикует штатное уведомление Авроры через Nemo.Notifications. Для POST/PATCH/DELETE заданы отдельные заголовки и preview-текст. Повторы и heartbeat отфильтрованы; следующие события заменяют одну запись. Приложение должно исполняться и поддерживать WSS; получение после полного закрытия не реализовано.
 
 ## 2.1. Основные файлы
 
@@ -824,6 +826,54 @@ QtObject {
 }
 ```
 
+## client/qml/services/SystemNotification.qml
+
+Системное уведомление при WSS-событии, защита от повторов и замена предыдущей записи.
+
+```
+import QtQml 2.2
+import Nemo.Notifications 1.0
+
+Notification {
+    id: notification
+    property var controller: null
+    property var seen: []
+    property int publishedCount: 0
+    property string lastEventId: ""
+    appName: "Расходы ЛР3"
+    appIcon: "com.example.expenseslab3"
+    expireTimeout: -1
+    isTransient: false
+
+    function notifyExpense(event) {
+        var titles = {POST: "Расход добавлен", PATCH: "Расход изменён", DELETE: "Расход удалён"}
+        if (!event || event.type !== "expense.changed" || !titles[event.action]) return
+        if (event.event_id && seen.indexOf(event.event_id) !== -1) return
+        summary = titles[event.action]
+        body = "Изменения получены с сервера. Список расходов обновляется."
+        previewSummary = summary
+        previewBody = body
+        timestamp = new Date()
+
+        publish()
+        if (replacesId) {
+            lastEventId = event.event_id || ""
+            if (lastEventId) {
+                if (seen.length >= 128) seen.shift()
+                seen.push(lastEventId)
+            }
+            publishedCount += 1
+            console.info("System notification published: " + replacesId + " " + event.action)
+        } else console.warn("Notification manager did not return an ID")
+    }
+
+    property Connections subscription: Connections {
+        target: notification.controller
+        onExpenseChanged: notification.notifyExpense(event)
+    }
+}
+```
+
 ## deploy/systemd/expenses@.service
 
 Автозапуск, restart и ограничения процессов.
@@ -893,6 +943,7 @@ server {
         proxy_read_timeout 45s;
         proxy_send_timeout 10s;
         proxy_buffering off;
+
         proxy_next_upstream error timeout http_502 http_503 http_504;
         proxy_next_upstream_tries 2;
     }
@@ -1636,6 +1687,8 @@ public:
     void setOffline(bool value);
 signals:
     void changed();
+
+    void expenseChanged(QVariantMap event);
 private:
     ApiClient api;
     PushService push;
@@ -1686,6 +1739,7 @@ ExpenseController::ExpenseController(const QString &dataDir, QObject *parent)
         if (event.value("type") == "expense.changed") {
             ++eventCount;
             lastEvent = event.value("action").toString() + " · " + event.value("instance").toString();
+            emit expenseChanged(event.toVariantMap());
         }
         emit changed();
         if (running) resyncRequested = true; else sync();
@@ -1875,13 +1929,15 @@ void ExpenseController::resolve(bool keepLocal) {
 ```
 import QtQuick 2.0
 import Sailfish.Silica 1.0
+import "services"
 
 ApplicationWindow {
     id: app
+    SystemNotification { controller: expensesController }
     initialPage: Component { MainPage {} }
     cover: Component {
         CoverBackground {
-            Label { anchors.centerIn: parent; text: "Расходы · ЛР3\n" + expensesController.pendingCount + " в очереди"; horizontalAlignment: Text.AlignHCenter }
+            Label { anchors.centerIn: parent; text: "Расходы ЛР3\n" + expensesController.pendingCount + " в очереди"; horizontalAlignment: Text.AlignHCenter }
         }
     }
 }
@@ -1909,7 +1965,7 @@ Page {
         }
         header: Column {
             width: list.width
-            PageHeader { title: "Расходы · ЛР3"; description: "Лабораторная 3 · HTTPS / WSS" }
+            PageHeader { title: "Расходы ЛР3" }
             SectionHeader { text: "Сервер и вход" }
             TextField { id: server; width: parent.width; label: "HTTPS-адрес ПК"; text: controller.serverUrl; enabled: !controller.busy; inputMethodHints: Qt.ImhUrlCharactersOnly }
             TextField { id: user; width: parent.width; label: "Пользователь"; text: controller.username; enabled: !controller.busy }
@@ -2059,7 +2115,7 @@ Type=Application
 X-Nemo-Application-Type=silica-qt5
 Icon=com.example.expenseslab3
 Exec=/usr/bin/com.example.expenseslab3
-Name=Расходы · ЛР3
+Name=Расходы ЛР3
 
 [X-Application]
 Permissions=Internet
@@ -2076,7 +2132,7 @@ ExecDBus=/usr/bin/com.example.expenseslab3
 Name: com.example.expenseslab3
 Summary: Scalable expenses — laboratory 3
 Version: 2.0.0
-Release: 8
+Release: 10
 License: BSD-3-Clause
 URL: https://developer.auroraos.ru
 Source0: %{name}-%{version}.tar.bz2
@@ -2084,6 +2140,7 @@ Requires: sailfishsilica-qt5 >= 0.10.9
 Requires: qt5-plugin-sqldriver-sqlite
 Requires: qt5-qtwebsockets
 Requires: qt5-qtdeclarative-import-websockets
+Requires: nemo-qml-plugin-notifications-qt5
 BuildRequires: pkgconfig(auroraapp)
 BuildRequires: pkgconfig(Qt5Core)
 BuildRequires: pkgconfig(Qt5Qml)
@@ -2120,6 +2177,8 @@ install -Dm755 tests/expenses-tests %{buildroot}%{_bindir}/com.example.expensesl
 ```
 
 ## 2.2. Проверка
+
+26 октября 2026 года на телефоне прошла сквозная проверка системных уведомлений: внешние POST/PATCH/DELETE → WSS → штатный диспетчер ОС. Получен ненулевой ID, изменения заменяют одну запись; повторы и heartbeat отфильтрованы. Повторно прошли прежние HTTPS/SQLite/WSS-сценарии. Журнал: docs/notification-validation.txt. Пользователь также подтвердил работу системных уведомлений на телефоне при изменении расхода через браузер. Отдельная проверка обоих способов отображения не уточнялась. Показ баннера зависит от настроек ОС; получение после полного закрытия приложения не реализовано.
 
 После разделения два самостоятельных подписанных RPM одновременно установлены на телефон. Оба интерфейса запускаются; пути ресурсов и локальных баз различаются. Повторные нативные тесты SQLite, HTTPS, offline CRUD, восстановления очереди, конфликтов и ETag прошли, для ЛР3 также прошли WSS и автоматическое обновление REST по push. Результат: docs/client-separation-validation.txt. Текущий проверенный адрес сервера — https://192.168.0.104:9443; его следует указать в поле адреса приложения.
 

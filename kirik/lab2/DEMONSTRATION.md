@@ -1,6 +1,6 @@
 # Полная демонстрация лабораторной №2
 
-Вариант №1 — задачи. Показываем REST API по HTTPS, браузер на ПК и Авроре, приложение **«Задачи · ЛР2»**, локальный кэш, offline CRUD, синхронизацию и конфликты. Клиент ЛР3 для этой работы не использовать.
+Вариант №1 — задачи. Показываем REST API по HTTPS, браузер на ПК и Авроре, приложение **«Задачи ЛР2»**, локальный кэш, offline CRUD, синхронизацию и конфликты. Клиент ЛР3 для этой работы не использовать.
 
 ## 1. Подготовить всё до показа
 
@@ -59,9 +59,9 @@ openssl x509 -in certificates/server.crt -noout -fingerprint -sha256
 ```bash
 cd ~/Unik/web_mobile_unik/kirik/lab2
 bash tools/build-client.sh
-scp -O client/RPMS/ru.kirik.taskslab2-1.0.0-3.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
+scp -O client/RPMS/ru.kirik.taskslab2-1.0.0-4.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
 ssh defaultuser@192.168.2.16 \
-  'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/ru.kirik.taskslab2-1.0.0-3.armv7hl.rpm'
+  'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/ru.kirik.taskslab2-1.0.0-4.armv7hl.rpm'
 ```
 
 Сборщик использует настроенный PSDK и armv7hl-target, собирает RPM и проверяет подпись. Если Version/Release менялись, взять имя RPM из вывода сборщика. Ожидаемый итог установки — `Installation successful`. Обычный пакет устанавливать через `sdk-deploy-rpm`, а не `devel-su rpm -Uvh`. Если политика запрещает тихую установку, убрать `--silent` и подтвердить действие на телефоне.
@@ -83,7 +83,7 @@ ssh defaultuser@192.168.2.16 \
 
 ## 5. Показать CRUD в нативном приложении
 
-Открыть **«Задачи · ЛР2»**, заполнить:
+Открыть **«Задачи ЛР2»**, заполнить:
 
 | Поле | Значение |
 |---|---|

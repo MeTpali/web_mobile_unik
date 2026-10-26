@@ -24,6 +24,7 @@ ExpenseController::ExpenseController(const QString &dataDir, QObject *parent)
         if (event.value("type") == "expense.changed") {
             ++eventCount;
             lastEvent = event.value("action").toString() + " · " + event.value("instance").toString();
+            emit expenseChanged(event.toVariantMap());
         }
         emit changed();
         if (running) resyncRequested = true; else sync();

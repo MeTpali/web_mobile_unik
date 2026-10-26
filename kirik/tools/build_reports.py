@@ -16,7 +16,7 @@ def files(number):
                     'lab-02/calculator/aurora/rpm/*.spec', 'lab-02/calculator/aurora/desktop/*.desktop']
     else:
         patterns = ['backend/app/*.py', 'backend/static/*', 'backend/requirements.txt',
-                    'client/src/*.cpp', 'client/src/*.h', 'client/qml/*.qml', 'client/services/*.qml',
+                    'client/src/*.cpp', 'client/src/*.h', 'client/qml/*.qml', 'client/qml/services/*.qml', 'client/services/*.qml',
                     'client/*.pro', 'client/*.desktop', 'client/*.qrc', 'client/rpm/*.spec',
                     'tools/build-client.sh', 'certificates/generate.sh']
         patterns += ['backend/run.py'] if number == 2 else ['deploy/scripts/*', 'deploy/nginx/*', 'deploy/systemd/*', 'tools/sign_package.sh']
@@ -34,6 +34,7 @@ def files(number):
         'calculator.py': 'Чистая арифметическая логика с проверкой деления на ноль.',
         'calculator.js': 'Арифметическая логика HTTP-калькулятора.',
         'protocol.py': 'Разбор WebSocket-запроса и формирование ответа с request_id.',
+        'SystemNotification.qml': 'Штатные уведомления ОС по task.changed, защита от повторов и замена предыдущей записи.',
         'MainPage.qml': 'Основной экран задач, вход, offline и выбор версии при конфликте.',
         'TaskDialog.qml': 'Создание и редактирование заголовка, срока, статуса и описания.',
         'install-host.sh': 'Развёртывание изолированных БД, systemd и nginx.',

@@ -49,6 +49,8 @@ public:
     void setOffline(bool value);
 signals:
     void changed();
+    // Только прикладное изменение, без heartbeat и статусов подключения.
+    void expenseChanged(QVariantMap event);
 private:
     ApiClient api;
     PushService push;

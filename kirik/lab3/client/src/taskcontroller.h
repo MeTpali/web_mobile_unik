@@ -49,6 +49,8 @@ public:
     void setOffline(bool value);
 signals:
     void changed();
+    // Доменное событие для отдельного компонента системных уведомлений.
+    void taskChanged(QVariantMap event);
 private:
     ApiClient api;
     PushService push;

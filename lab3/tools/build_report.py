@@ -19,6 +19,7 @@ FILES = [
     ('client/src/pushservice.h', 'Интерфейс WSS-сервиса.'),
     ('client/src/pushservice.cpp', 'Подключение, heartbeat, безопасное завершение и повторы WSS.'),
     ('client/services/PushSocket.qml', 'Нативный QtWebSockets-адаптер.'),
+    ('client/qml/services/SystemNotification.qml', 'Системное уведомление при WSS-событии, защита от повторов и замена предыдущей записи.'),
     ('deploy/systemd/expenses@.service', 'Автозапуск, restart и ограничения процессов.'),
     ('deploy/nginx/expenses.conf', 'HTTPS, балансировщик, заголовки и WSS-проксирование.'),
     ('deploy/nginx/blue.conf', 'Два backend версии blue.'),
@@ -126,13 +127,17 @@ def generate():
     add('2. Выполнение', 'heading')
     add('За основу взят учёт расходов из второй лабораторной. FastAPI использует общую PostgreSQL; два процесса запускаются через systemd-шаблон. nginx завершает HTTPS и балансирует запросы. Подготовлены blue 1.0.2 и green 2.0.2: green добавляет /api/v1/summary. Клиент Qt/QML/C++ обновлён до версии 2.0.0 и подключается к одному адресу балансировщика.')
     add('Сохранены JWT, локальный SQLite-кэш и offline-очередь. Добавлен WSS-сервис с heartbeat и повторами; при уведомлении клиент выполняет REST-синхронизацию. Межпроцессные события передаются через PostgreSQL LISTEN/NOTIFY после COMMIT. Код отделён от настроек инфраструктуры, релизы хранятся в отдельных неизменяемых каталогах. RPM собран через mb2/rpmbuild и подписан штатным rpmsign-external через явную обёртку sign_package.sh.')
-    add('Самостоятельное приложение «Расходы · ЛР3» использует пакет com.example.expenseslab3. Оно устанавливается одновременно с клиентом другой лабораторной. QSettings, локальная SQLite-база и offline-очередь изолированы; данные прежнего пакета com.example.expenses автоматически не переносятся.')
+    add('Самостоятельное приложение «Расходы ЛР3» использует пакет com.example.expenseslab3. Оно устанавливается одновременно с клиентом другой лабораторной. QSettings, локальная SQLite-база и offline-очередь изолированы; данные прежнего пакета com.example.expenses автоматически не переносятся.')
+    add('При expense.changed отдельный QML-компонент SystemNotification публикует штатное уведомление Авроры через Nemo.Notifications. Для POST/PATCH/DELETE заданы отдельные заголовки и preview-текст. Повторы и heartbeat отфильтрованы; следующие события заменяют одну запись. Приложение должно исполняться и поддерживать WSS; получение после полного закрытия не реализовано.')
     add('2.1. Основные файлы', 'heading')
     for path, description in FILES:
         add(path, 'heading')
         add(description)
         add(listing(path), 'code')
     add('2.2. Проверка', 'heading')
+    notification_log = ROOT / 'docs/notification-validation.txt'
+    if notification_log.exists() and 'PASS system notifications:' in notification_log.read_text():
+        add('26 октября 2026 года на телефоне прошла сквозная проверка системных уведомлений: внешние POST/PATCH/DELETE → WSS → штатный диспетчер ОС. Получен ненулевой ID, изменения заменяют одну запись; повторы и heartbeat отфильтрованы. Повторно прошли прежние HTTPS/SQLite/WSS-сценарии. Журнал: docs/notification-validation.txt. Пользователь также подтвердил работу системных уведомлений на телефоне при изменении расхода через браузер. Отдельная проверка обоих способов отображения не уточнялась. Показ баннера зависит от настроек ОС; получение после полного закрытия приложения не реализовано.')
     add('После разделения два самостоятельных подписанных RPM одновременно установлены на телефон. Оба интерфейса запускаются; пути ресурсов и локальных баз различаются. Повторные нативные тесты SQLite, HTTPS, offline CRUD, восстановления очереди, конфликтов и ETag прошли, для ЛР3 также прошли WSS и автоматическое обновление REST по push. Результат: docs/client-separation-validation.txt. Текущий проверенный адрес сервера — https://192.168.0.104:9443; его следует указать в поле адреса приложения.')
     evidence_path = ROOT / 'docs/cluster-validation.json'
     if evidence_path.exists():

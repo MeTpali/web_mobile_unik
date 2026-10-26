@@ -12,6 +12,8 @@
 #include <QThread>
 #include <QUuid>
 #include <QDebug>
+#include <QQmlComponent>
+#include <QQmlEngine>
 #include <stdexcept>
 
 void require(bool ok, const char *message) { if (!ok) throw std::runtime_error(message); }
@@ -117,6 +119,13 @@ void integration(const QString &url, const QString &cert, const QString &path) {
         c.sync(); wait([&]() { return !c.busy(); });
         require(c.status().contains("304"), "Условный GET не использует ETag");
         wait([&]() { return c.pushStatus().startsWith("Push: "); });
+        // Тот же компонент, что в приложении: проверяем реальную публикацию ОС.
+        QQmlEngine notificationEngine;
+        QQmlComponent notificationComponent(&notificationEngine, QUrl("qrc:/services/SystemNotification.qml"));
+        QScopedPointer<QObject> notification(notificationComponent.create());
+        require(!notification.isNull(), qPrintable(notificationComponent.errorString()));
+        notification->setProperty("appName", "Расходы ЛР3 (тест)");
+        notification->setProperty("controller", QVariant::fromValue(static_cast<QObject*>(&c)));
         qInfo() << "Native WSS authenticated:" << c.pushStatus();
         auto external = row(); external.remove("version");
         const auto externalId = external.value("id").toString();
@@ -127,8 +136,29 @@ void integration(const QString &url, const QString &cert, const QString &path) {
             return false;
         };
         wait([&]() { return c.pushCount() > beforePush && !c.busy() && hasExternal(); });
-        require(call(api, "DELETE", "/api/v1/expenses/" + externalId, {}, 1, uuid().toUtf8()).status == 204, "Внешний DELETE не выполнен");
+        wait([&]() { return notification->property("publishedCount").toInt() > 0; });
+        const auto notificationId = notification->property("replacesId").toUInt();
+        const auto published = notification->property("publishedCount").toInt();
+        require(notificationId > 0 && notification->property("summary").toString() == "Расход добавлен",
+                "Системный диспетчер не подтвердил уведомление POST");
+        // Повторное событие и heartbeat не должны публиковать уведомления.
+        const QVariant duplicate = QVariantMap{{"type", "expense.changed"}, {"action", "POST"},
+            {"event_id", notification->property("lastEventId")}};
+        require(QMetaObject::invokeMethod(notification.data(), "notifyExpense", Q_ARG(QVariant, duplicate)), "Нет notifyExpense");
+        const QVariant heartbeat = QVariantMap{{"type", "heartbeat"}};
+        QMetaObject::invokeMethod(notification.data(), "notifyExpense", Q_ARG(QVariant, heartbeat));
+        require(notification->property("publishedCount").toInt() == published, "Повтор или heartbeat создал уведомление");
+        require(call(api, "PATCH", "/api/v1/expenses/" + externalId, {{"comment", "notification check"}}, 1, uuid().toUtf8()).ok(),
+                "Внешний PATCH не выполнен");
+        wait([&]() { return notification->property("summary").toString() == "Расход изменён"; });
+        require(notification->property("replacesId").toUInt() == notificationId, "PATCH должен заменять прежнее уведомление");
+        require(call(api, "DELETE", "/api/v1/expenses/" + externalId, {}, 2, uuid().toUtf8()).status == 204, "Внешний DELETE не выполнен");
         wait([&]() { return !c.busy() && !hasExternal(); });
+        wait([&]() { return notification->property("summary").toString() == "Расход удалён"; });
+        require(notification->property("replacesId").toUInt() == notificationId, "DELETE должен заменять прежнее уведомление");
+        require(notification->property("previewSummary").toString() == "Расход удалён", "Не задан текст баннера");
+        QMetaObject::invokeMethod(notification.data(), "close");
+        qInfo() << "PASS system notifications: WSS POST/PATCH/DELETE, OS ID, replacement, dedup, heartbeat ignored";
         qInfo() << "PASS WSS native: external CRUD push, automatic REST refresh" << c.lastPush();
     }
     qInfo() << "PASS HTTPS native: login, offline CRUD, restart, sync, conflicts, ETag 304";

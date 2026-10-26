@@ -1,1 +1,1 @@
-<RCC><qresource prefix="/services"><file alias="PushSocket.qml">services/PushSocket.qml</file></qresource></RCC>
+<RCC><qresource prefix="/services"><file alias="PushSocket.qml">services/PushSocket.qml</file><file alias="SystemNotification.qml">qml/services/SystemNotification.qml</file></qresource></RCC>

@@ -15,7 +15,7 @@ Page {
         }
         header: Column {
             width: list.width
-            PageHeader { title: "Расходы · ЛР2"; description: "REST · HTTPS · SQLite" }
+            PageHeader { title: "Расходы ЛР2" }
             SectionHeader { text: "Сервер и вход" }
             TextField { id: server; width: parent.width; label: "HTTPS-адрес ПК"; text: controller.serverUrl; enabled: !controller.busy; inputMethodHints: Qt.ImhUrlCharactersOnly }
             TextField { id: user; width: parent.width; label: "Пользователь"; text: controller.username; enabled: !controller.busy }

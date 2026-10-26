@@ -1,7 +1,7 @@
 Name: ru.kirik.taskslab3
 Summary: Scalable tasks — laboratory 3
 Version: 2.0.0
-Release: 10
+Release: 11
 License: BSD-3-Clause
 URL: https://developer.auroraos.ru
 Source0: %{name}-%{version}.tar.bz2
@@ -9,6 +9,7 @@ Requires: sailfishsilica-qt5 >= 0.10.9
 Requires: qt5-plugin-sqldriver-sqlite
 Requires: qt5-qtwebsockets
 Requires: qt5-qtdeclarative-import-websockets
+Requires: nemo-qml-plugin-notifications-qt5
 BuildRequires: pkgconfig(auroraapp)
 BuildRequires: pkgconfig(Qt5Core)
 BuildRequires: pkgconfig(Qt5Qml)

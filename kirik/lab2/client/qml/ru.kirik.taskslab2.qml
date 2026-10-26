@@ -6,7 +6,7 @@ ApplicationWindow {
     initialPage: Component { MainPage {} }
     cover: Component {
         CoverBackground {
-            Label { anchors.centerIn: parent; text: "Задачи · ЛР2\n" + tasksController.pendingCount + " в очереди"; horizontalAlignment: Text.AlignHCenter }
+            Label { anchors.centerIn: parent; text: "Задачи ЛР2\n" + tasksController.pendingCount + " в очереди"; horizontalAlignment: Text.AlignHCenter }
         }
     }
 }

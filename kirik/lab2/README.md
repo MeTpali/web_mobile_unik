@@ -2,7 +2,7 @@
 
 Поля: заголовок `title` (1–160 символов), описание `description` (до 2000), статус `status` (`todo`, `doing`, `done`), срок `due_date` (YYYY-MM-DD). API — `/api/v1/tasks`, создание POST, изменение PATCH, чтение GET, удаление DELETE. JWT, права, ETag, версии и идемпотентность сохранены. UI, контроллер, транспорт и SQLite разделены.
 
-Приложение «Задачи · ЛР2», пакет `ru.kirik.taskslab2`. Оно устанавливается параллельно с ЛР3 и обоими клиентами расходов. Данные не мигрируют из других приложений.
+Приложение «Задачи ЛР2», пакет `ru.kirik.taskslab2`. Оно устанавливается параллельно с ЛР3 и обоими клиентами расходов. Данные не мигрируют из других приложений.
 
 ## Зависимости и сертификат
 
@@ -30,8 +30,8 @@ cd ~/Unik/web_mobile_unik/kirik/lab2/backend
 ```bash
 cd ~/Unik/web_mobile_unik/kirik/lab2
 bash tools/build-client.sh
-scp -O client/RPMS/ru.kirik.taskslab2-1.0.0-3.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
-ssh defaultuser@192.168.2.16 'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/ru.kirik.taskslab2-1.0.0-3.armv7hl.rpm'
+scp -O client/RPMS/ru.kirik.taskslab2-1.0.0-4.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
+ssh defaultuser@192.168.2.16 'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/ru.kirik.taskslab2-1.0.0-4.armv7hl.rpm'
 ```
 
 При смене Version/Release использовать имя из вывода сборщика. Пакет подписывается штатной ключевой парой Aurora SDK и проверяется. Скрипт использует PSDK `~/AuroraPlatformSDK/sdks/aurora_psdk`, target armv7hl; пути меняются через `LAB_PSDK`, `LAB_SDK`, `LAB_TARGET`. При запрете тихой установки убрать `--silent` и подтвердить на телефоне. `devel-su rpm -Uvh` не применять для пользовательского пакета.

@@ -24,6 +24,7 @@ TaskController::TaskController(const QString &dataDir, QObject *parent)
         if (event.value("type") == "task.changed") {
             ++eventCount;
             lastEvent = event.value("action").toString() + " · " + event.value("instance").toString();
+            emit taskChanged(event.toVariantMap());
         }
         emit changed();
         if (running) resyncRequested = true; else sync();
