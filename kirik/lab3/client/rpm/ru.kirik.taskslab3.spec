@@ -1,7 +1,7 @@
 Name: ru.kirik.taskslab3
 Summary: Scalable tasks — laboratory 3
 Version: 2.0.0
-Release: 11
+Release: 13
 License: BSD-3-Clause
 URL: https://developer.auroraos.ru
 Source0: %{name}-%{version}.tar.bz2

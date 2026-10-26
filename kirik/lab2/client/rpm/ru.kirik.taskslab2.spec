@@ -1,7 +1,7 @@
 Name: ru.kirik.taskslab2
 Summary: Offline tasks — laboratory 2
 Version: 1.0.0
-Release: 4
+Release: 6
 License: BSD-3-Clause
 URL: https://developer.auroraos.ru
 Source0: %{name}-%{version}.tar.bz2

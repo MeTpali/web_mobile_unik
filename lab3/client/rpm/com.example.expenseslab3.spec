@@ -1,7 +1,7 @@
 Name: com.example.expenseslab3
 Summary: Scalable expenses — laboratory 3
 Version: 2.0.0
-Release: 10
+Release: 11
 License: BSD-3-Clause
 URL: https://developer.auroraos.ru
 Source0: %{name}-%{version}.tar.bz2

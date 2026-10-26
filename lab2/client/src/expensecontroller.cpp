@@ -8,7 +8,7 @@
 
 ExpenseController::ExpenseController(const QString &dataDir, QObject *parent)
     : QObject(parent), api(this), store(dataDir + "/expenses.sqlite") {
-    api.baseUrl = settings.value("server", "https://192.168.0.118:8443").toString();
+    api.baseUrl = settings.value("server", "https://10.215.223.25:8443").toString();
     api.certificatePath = settings.value("certificate", "/usr/share/com.example.expenseslab2/certificates/server.crt").toString();
     account = settings.value("username", "demo").toString();
     api.token = settings.value("token").toString();

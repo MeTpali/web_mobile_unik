@@ -37,9 +37,13 @@
       el('list').textContent = '';
       rows.forEach(function (row) {
         var li = document.createElement('li');
-        var text = document.createElement('div');
-        text.textContent = row.due_date + ' · ' + row.title + ' · ' + row.status + ' · ' + row.description;
-        li.appendChild(text);
+        var title = document.createElement('h3'); title.textContent = row.title;
+        var state = document.createElement('span'); state.className = 'task-state';
+        state.textContent = {todo: 'В планах', doing: 'В работе', done: 'Готово'}[row.status] || row.status;
+        var due = document.createElement('p'); due.textContent = 'Срок: ' + row.due_date;
+        var description = document.createElement('p'); description.textContent = row.description;
+        li.appendChild(state); li.appendChild(title); li.appendChild(due);
+        if (row.description) li.appendChild(description);
         var edit = document.createElement('button'); edit.textContent = 'Изменить';
         edit.onclick = function () {
           el('recordId').value = row.id; el('version').value = row.version;

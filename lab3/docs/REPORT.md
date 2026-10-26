@@ -1268,6 +1268,37 @@ echo "Трафик направлен в $lab_color. Старая группа �
 echo "После проверки: sudo systemctl stop expenses@$lab_other-1 expenses@$lab_other-2"
 ```
 
+## deploy/scripts/update-tls.sh
+
+Проверка новой пары TLS, резервная копия, reload nginx и откат при ошибке.
+
+```
+set -euo pipefail
+[[ $EUID -eq 0 ]] || { echo 'Запустите через sudo'; exit 1; }
+lab_root=$(cd -- "$(dirname -- "$0")/../.." && pwd)
+lab_tls_dir=/etc/expenses-lab
+[[ -f "$lab_tls_dir/server.crt" && -f "$lab_tls_dir/server.key" ]] || {
+  echo 'Сначала разверните инфраструктуру ЛР3'; exit 1;
+}
+openssl verify -CAfile "$lab_root/certificates/server.crt" "$lab_root/certificates/server.crt"
+cmp <(openssl x509 -in "$lab_root/certificates/server.crt" -pubkey -noout) \
+    <(openssl pkey -in "$lab_root/certificates/server.key" -pubout)
+exec 9>/run/lock/expenses-tls.lock
+flock 9
+lab_backup=$(mktemp -d "$lab_tls_dir/tls-backup-XXXXXXXX")
+chmod 700 "$lab_backup"
+cp -a "$lab_tls_dir/server.crt" "$lab_tls_dir/server.key" "$lab_backup/"
+install -m 600 "$lab_root/certificates/server.key" "$lab_tls_dir/server.key"
+install -m 644 "$lab_root/certificates/server.crt" "$lab_tls_dir/server.crt"
+if ! nginx -t || ! systemctl reload nginx; then
+  cp -a "$lab_backup/server.crt" "$lab_backup/server.key" "$lab_tls_dir/"
+  systemctl reload nginx || true
+  echo "Обновление не удалось, прежние сертификат и ключ восстановлены: $lab_backup" >&2
+  exit 1
+fi
+echo "TLS nginx обновлён. Резервная копия: $lab_backup"
+```
+
 ## tools/sign_package.sh
 
 Подпись RPM штатной командой SDK.
@@ -1723,7 +1754,7 @@ private:
 
 ExpenseController::ExpenseController(const QString &dataDir, QObject *parent)
     : QObject(parent), api(this), push(this), store(dataDir + "/expenses.sqlite") {
-    api.baseUrl = settings.value("server", "https://192.168.0.118:9443").toString();
+    api.baseUrl = settings.value("server", "https://10.215.223.25:9443").toString();
     api.certificatePath = settings.value("certificate", "/usr/share/com.example.expenseslab3/certificates/server.crt").toString();
     account = settings.value("username", "demo").toString();
     api.token = settings.value("token").toString();
@@ -2132,7 +2163,7 @@ ExecDBus=/usr/bin/com.example.expenseslab3
 Name: com.example.expenseslab3
 Summary: Scalable expenses — laboratory 3
 Version: 2.0.0
-Release: 10
+Release: 11
 License: BSD-3-Clause
 URL: https://developer.auroraos.ru
 Source0: %{name}-%{version}.tar.bz2
@@ -2177,6 +2208,8 @@ install -Dm755 tests/expenses-tests %{buildroot}%{_bindir}/com.example.expensesl
 ```
 
 ## 2.2. Проверка
+
+26 октября 2026 года после смены сети обновлён сертификат nginx и установлен клиент com.example.expenseslab3-2.0.0-11 с новой доверенной копией. На телефоне по https://10.215.223.25:9443 прошли проверки сертификата и имени хоста, HTTPS, SQLite, offline CRUD, конфликтов, ETag, WSS и системных уведомлений. Журнал: docs/tls-validation.txt.
 
 26 октября 2026 года на телефоне прошла сквозная проверка системных уведомлений: внешние POST/PATCH/DELETE → WSS → штатный диспетчер ОС. Получен ненулевой ID, изменения заменяют одну запись; повторы и heartbeat отфильтрованы. Повторно прошли прежние HTTPS/SQLite/WSS-сценарии. Журнал: docs/notification-validation.txt. Пользователь также подтвердил работу системных уведомлений на телефоне при изменении расхода через браузер. Отдельная проверка обоих способов отображения не уточнялась. Показ баннера зависит от настроек ОС; получение после полного закрытия приложения не реализовано.
 

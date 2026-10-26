@@ -13,7 +13,7 @@ openssl x509 -in certificates/server.crt -noout -dates -ext subjectAltName
 ss -ltnp 'sport = :8443'
 ```
 
-Примеры используют последний проверенный IP ПК `192.168.0.104`. Если он изменился, заменить адрес в URL. IP должен присутствовать в `subjectAltName` сертификата; текущий сертификат содержит `192.168.0.104` и `192.168.0.118`. SSH-адрес телефона `192.168.2.16` не является адресом API.
+Примеры используют текущий Wi-Fi IP ПК `10.215.223.25`. Если он изменился, заменить адрес в URL. IP должен присутствовать в `subjectAltName` сертификата; текущий сертификат содержит `10.215.223.25`, `192.168.2.8`, прежние `192.168.0.104` и `192.168.0.118`. SSH-адрес телефона `192.168.2.16` не является адресом API.
 
 Если окружение ещё не подготовлено:
 
@@ -26,7 +26,7 @@ python3 -m venv .venv
 В чистой копии без сертификата сначала выполнить из `lab2`:
 
 ```bash
-bash certificates/generate.sh 192.168.0.104 192.168.0.118
+bash certificates/generate.sh 192.168.0.104 192.168.0.118 10.215.223.25 192.168.2.8
 ```
 
 Существующий сертификат пересоздавать перед каждым показом не нужно. Если новый IP отсутствует в SAN, сохранить старые файлы в резервном каталоге, выпустить новую пару и пересобрать/переустановить клиент с новым публичным сертификатом. Закрытый ключ остаётся на ПК. Подробности — в [README.md](README.md).
@@ -46,7 +46,7 @@ cd ~/Unik/web_mobile_unik/lab2/backend
 
 ```bash
 cd ~/Unik/web_mobile_unik/lab2
-curl -i --cacert certificates/server.crt https://192.168.0.104:8443/health
+curl -i --cacert certificates/server.crt https://10.215.223.25:8443/health
 openssl x509 -in certificates/server.crt -noout -fingerprint -sha256
 ```
 
@@ -59,16 +59,16 @@ openssl x509 -in certificates/server.crt -noout -fingerprint -sha256
 ```bash
 cd ~/Unik/web_mobile_unik/lab2
 bash tools/build-client.sh
-scp -O client/RPMS/com.example.expenseslab2-1.0.0-3.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
+scp -O client/RPMS/com.example.expenseslab2-1.0.0-4.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
 ssh defaultuser@192.168.2.16 \
-  'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/com.example.expenseslab2-1.0.0-3.armv7hl.rpm'
+  'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/com.example.expenseslab2-1.0.0-4.armv7hl.rpm'
 ```
 
 Сборщик использует настроенный PSDK и armv7hl-target, собирает RPM и проверяет подпись. Если Version/Release менялись, взять имя RPM из вывода сборщика. Ожидаемый итог установки — `Installation successful`. Обычный пакет устанавливать через `sdk-deploy-rpm`, а не `devel-su rpm -Uvh`. Если политика запрещает тихую установку, убрать `--silent` и подтвердить действие на телефоне.
 
 ## 4. Показать CRUD в браузере ПК и телефона
 
-На обоих устройствах открыть `https://192.168.0.104:8443/`. Подтвердить доверие к конкретному учебному сертификату, если браузер допускает исключение. При запрете политикой использовать предусмотренный администратором способ доверия; политику не обходить. Для документации API на ПК открыть `/docs` или `/openapi.json`.
+На обоих устройствах открыть `https://10.215.223.25:8443/`. Подтвердить доверие к конкретному учебному сертификату, если браузер допускает исключение. При запрете политикой использовать предусмотренный администратором способ доверия; политику не обходить. Для документации API на ПК открыть `/docs` или `/openapi.json`.
 
 Войти как `demo`, пароль `demo12345`. На ПК:
 
@@ -87,11 +87,11 @@ ssh defaultuser@192.168.2.16 \
 
 | Поле | Значение |
 |---|---|
-| HTTPS-адрес ПК | `https://192.168.0.104:8443` |
+| HTTPS-адрес ПК | `https://10.215.223.25:8443` |
 | Пользователь / пароль | `demo` / `demo12345` |
 | Сертификат | `/usr/share/com.example.expenseslab2/certificates/server.crt` |
 
-Не оставлять прежний IP `192.168.0.118`, если он сейчас не назначен ПК. Выключить «Работать offline» и нажать «Войти».
+Не оставлять прежние IP `192.168.0.118` или `192.168.0.104`, если они сейчас не назначены ПК. Выключить «Работать offline» и нажать «Войти».
 
 1. Создать запись кнопкой «Новый расход»: категория `Демо ЛР2 телефон`, сумма `125,50`, комментарий `Онлайн`.
 2. Дождаться окончания синхронизации и нулевой очереди. Обновить браузер: запись должна появиться.
@@ -138,7 +138,7 @@ ssh defaultuser@192.168.2.16 \
 
 ```bash
 cd ~/Unik/web_mobile_unik/lab2
-LAB2_URL=https://192.168.0.104:8443
+LAB2_URL=https://10.215.223.25:8443
 LAB2_CERT=certificates/server.crt
 LAB2_TOKEN=$(curl -fsS --cacert "$LAB2_CERT" "$LAB2_URL/api/v1/auth/login" \
   -H 'Content-Type: application/json' \
@@ -194,7 +194,7 @@ cd ~/Unik/web_mobile_unik/lab2/backend
 
 ```bash
 ssh defaultuser@192.168.2.16 \
-  'QT_LOGGING_TO_CONSOLE=1 /usr/bin/com.example.expenseslab2-tests https://192.168.0.104:8443 /usr/share/com.example.expenseslab2/certificates/server.crt'
+  'QT_LOGGING_TO_CONSOLE=1 /usr/bin/com.example.expenseslab2-tests https://10.215.223.25:8443 /usr/share/com.example.expenseslab2/certificates/server.crt'
 ```
 
 Ожидаются `PASS SQLite: ...` и `PASS HTTPS native: ...`, код завершения 0. Тест использует временный локальный кэш, создаёт свои серверные записи и убирает их при нормальном завершении. Он дополняет показ интерфейса.

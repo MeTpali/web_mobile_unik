@@ -8,10 +8,10 @@ FastAPI + PostgreSQL, два systemd-инстанса за nginx, HTTPS/WSS, blu
 
 | Компонент | Адрес / имя |
 |---|---|
-| nginx, единый адрес приложения | `https://192.168.0.118:9443` |
-| Браузерная форма | `https://192.168.0.118:9443/` |
+| nginx, единый адрес приложения | `https://10.215.223.25:9443` |
+| Браузерная форма | `https://10.215.223.25:9443/` |
 | Swagger / OpenAPI | `/docs`, `/openapi.json` |
-| WebSocket | `wss://192.168.0.118:9443/api/v1/events` |
+| WebSocket | `wss://10.215.223.25:9443/api/v1/events` |
 | blue | `127.0.0.1:9101`, `127.0.0.1:9102` |
 | green | `127.0.0.1:9201`, `127.0.0.1:9202` |
 | SSH телефона | `defaultuser@192.168.2.16` |
@@ -29,10 +29,10 @@ sudo apt-get install -y nginx postgresql python3-venv curl openssl
 cd ~/Unik/web_mobile_unik/lab3
 ```
 
-В рабочем экземпляре сертификат скопирован из второй лабораторной, включая SAN 192.168.0.118 и 192.168.0.104. В чистом клоне создать новый:
+На 26 октября 2026 года сертификат ЛР3 содержит SAN 10.215.223.25, 192.168.2.8, прежние 192.168.0.118 и 192.168.0.104, а также localhost и 127.0.0.1. В чистом клоне создать новый:
 
 ```bash
-bash certificates/generate.sh 192.168.0.118 192.168.0.104
+bash certificates/generate.sh 192.168.0.118 192.168.0.104 10.215.223.25 192.168.2.8
 ```
 
 Существующие ключи скрипт не перезаписывает. При замене сертификата нужно обновить nginx и пакет клиента. Закрытый ключ не включается в Git и RPM.
@@ -129,12 +129,12 @@ PSDK запускает rpmbuild через mb2. Скрипт `tools/sign_packag
 Номер Release указан в `client/rpm/com.example.expenseslab3.spec`; фактический путь готового пакета печатает сборщик:
 
 ```bash
-scp -O client/RPMS/com.example.expenseslab3-2.0.0-10.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
+scp -O client/RPMS/com.example.expenseslab3-2.0.0-11.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
 ssh defaultuser@192.168.2.16 \
-  'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/com.example.expenseslab3-2.0.0-10.armv7hl.rpm'
+  'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/com.example.expenseslab3-2.0.0-11.armv7hl.rpm'
 ```
 
-В приложении «Расходы ЛР3» указать **https://192.168.0.118:9443**, затем войти. Адрес по умолчанию — 9443; настройки клиента ЛР2 не используются. Путь сертификата остаётся `/usr/share/com.example.expenseslab3/certificates/server.crt`.
+В приложении «Расходы ЛР3» указать **https://10.215.223.25:9443**, затем войти. Адрес по умолчанию — 9443; настройки клиента ЛР2 не используются. Путь сертификата остаётся `/usr/share/com.example.expenseslab3/certificates/server.crt`.
 
 Push реализован C++-сервисом с небольшим транспортным QML-адаптером штатного QtWebSockets. JWT передаётся первым защищённым WSS-кадром и не попадает в URL. При разрыве используются интервалы повторов 1, 2, 4, 8, 16, 30 секунд. Heartbeat контролирует зависшие соединения. После подключения клиент выполняет REST-синхронизацию; push не заменяет источник данных.
 
@@ -157,7 +157,7 @@ cd backend
 
 ```bash
 ssh defaultuser@192.168.2.16 \
-  'QT_LOGGING_TO_CONSOLE=1 /usr/bin/com.example.expenseslab3-tests https://192.168.0.118:9443 /usr/share/com.example.expenseslab3/certificates/server.crt'
+  'QT_LOGGING_TO_CONSOLE=1 /usr/bin/com.example.expenseslab3-tests https://10.215.223.25:9443 /usr/share/com.example.expenseslab3/certificates/server.crt'
 ```
 
 Снимки экрана исключены согласно политике устройства. Результаты проверок и ограничения фиксируются в `docs/VALIDATION.md`.
@@ -174,7 +174,7 @@ ssh defaultuser@192.168.2.16 \
 
 ```bash
 ssh defaultuser@192.168.2.16 \
-  'QT_LOGGING_TO_CONSOLE=1 /usr/bin/com.example.expenseslab3-tests https://192.168.0.118:9443 /usr/share/com.example.expenseslab3/certificates/server.crt --watch'
+  'QT_LOGGING_TO_CONSOLE=1 /usr/bin/com.example.expenseslab3-tests https://10.215.223.25:9443 /usr/share/com.example.expenseslab3/certificates/server.crt --watch'
 ```
 
 После подключения монитора запустить `exercise-cluster.py` на ПК с sudo. Монитор ждёт сценарий до 10 минут и завершается после наблюдения green, возврата blue, push-событий и десяти успешных HTTP-запросов после восстановления. Он выводит отдельно количество успешных запросов, сетевых ошибок, подключений и событий. Временные сетевые ошибки учитываются; критерий телефона — восстановление работы и данных. Серверный монитор отдельно требует отсутствия HTTP-ошибок при отказе backend.
@@ -185,6 +185,18 @@ ssh defaultuser@192.168.2.16 \
 
 Компонент `client/qml/services/SystemNotification.qml` отделён от транспорта и контроллера. Контроллер сообщает доменное событие, компонент отвечает за публикацию в ОС. В RPM добавлена зависимость `nemo-qml-plugin-notifications-qt5`; дополнительных разрешений desktop для штатного модуля не требуется.
 
-Для показа оставить приложение запущенным и online, войти под demo в приложении и на https://192.168.0.104:9443/. Создать/изменить/удалить расход в браузере. Список телефона обновляется, появляется системное уведомление. Если политика/настройки ОС подавляют баннер, проверить шторку уведомлений. При полностью закрытом процессе WSS не работает и уведомления не поступают; отдельная фоновая служба не добавлялась.
+Для показа оставить приложение запущенным и online, войти под demo в приложении и на https://10.215.223.25:9443/. Создать/изменить/удалить расход в браузере. Список телефона обновляется, появляется системное уведомление. Если политика/настройки ОС подавляют баннер, проверить шторку уведомлений. При полностью закрытом процессе WSS не работает и уведомления не поступают; отдельная фоновая служба не добавлялась.
 
 Основа реализации: [Notification](https://developer.auroraos.ru/doc/5.0.1/software_development/reference/notification_and_data_exchange/notifications/all_qml-types/qml_notification), [подключение зависимостей](https://developer.auroraos.ru/doc/software_development/reference/public_api/dependency_connection).
+
+## Обновить TLS без переустановки инфраструктуры
+
+При смене сети сверить новый IP с SAN сертификата. Если его нет, сохранить прежние сертификат и ключ, выпустить новую пару либо перевыпустить сертификат с существующим ключом с нужными IP. Затем из lab3 выполнить:
+
+```bash
+sudo bash deploy/scripts/update-tls.sh
+```
+
+Скрипт проверяет срок/подпись сертификата и соответствие ключа, сохраняет прежнюю пару в закрытом каталоге /etc/expenses-lab/tls-backup-*, обновляет только TLS-файлы и выполняет nginx -t и reload. При неудаче возвращает прежние файлы. Backend, БД, JWT и выбранная blue/green-группа не меняются. Повторный install-host.sh для смены сертификата не нужен.
+
+После этого пересобрать и установить клиент с новым публичным сертификатом через tools/build-client.sh, указать текущий адрес сервера. На текущей сети: https://10.215.223.25:9443; при USB-подключении адрес ПК — https://192.168.2.8:9443. Сертификат покрывает оба адреса. HTTPS и WSS используют один сертификат nginx; отключать проверки в клиенте не требуется. Самоподписанный сертификат может требовать отдельного подтверждения доверия в браузере.

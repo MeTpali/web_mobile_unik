@@ -10,7 +10,10 @@ class CalculatorApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
         title: 'Калькулятор',
-        theme: ThemeData(colorSchemeSeed: Colors.indigo, useMaterial3: true),
+        theme: ThemeData(
+            colorSchemeSeed: const Color(0xff203931),
+            brightness: Brightness.light,
+            useMaterial3: true),
         home: CalculatorPage(
             createController: () =>
                 CalculatorController(WebSocketCalculatorService())),

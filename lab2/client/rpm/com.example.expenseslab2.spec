@@ -1,7 +1,7 @@
 Name: com.example.expenseslab2
 Summary: Offline expenses — laboratory 2
 Version: 1.0.0
-Release: 3
+Release: 4
 License: BSD-3-Clause
 URL: https://developer.auroraos.ru
 Source0: %{name}-%{version}.tar.bz2

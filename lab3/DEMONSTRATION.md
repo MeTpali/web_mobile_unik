@@ -16,14 +16,14 @@ systemctl list-units 'expenses@*' --all --no-pager
 sudo ls /etc/expenses-lab /opt/expenses-lab/releases
 ```
 
-Примеры используют последний проверенный IP ПК `192.168.0.104`, который присутствует в SAN сертификата. Если IP изменился, заменить его в URL и проверить сертификат. Телефон должен иметь сетевой маршрут к ПК; доступ по USB/SSH не подтверждает доступность HTTPS по Wi-Fi.
+Примеры используют текущий Wi-Fi IP ПК `10.215.223.25`, который присутствует в SAN сертификата. Для USB в сертификат также включён адрес ПК `192.168.2.8`. Если IP изменился, заменить его в URL и проверить сертификат. Телефон должен иметь сетевой маршрут к ПК; доступ по USB/SSH не подтверждает доступность HTTPS по Wi-Fi.
 
 Ожидаемая схема:
 
 | Компонент | Назначение |
 |---|---|
-| `https://192.168.0.104:9443` | Единый адрес nginx для браузера и приложения |
-| `wss://192.168.0.104:9443/api/v1/events` | Push-канал; клиент выводит адрес из HTTPS URL |
+| `https://10.215.223.25:9443` | Единый адрес nginx для браузера и приложения |
+| `wss://10.215.223.25:9443/api/v1/events` | Push-канал; клиент выводит адрес из HTTPS URL |
 | `expenses@blue-1`, `expenses@blue-2` | Версия 1.0.2, HTTP на 127.0.0.1:9101/9102 |
 | `expenses@green-1`, `expenses@green-2` | Версия 2.0.2, HTTP на 127.0.0.1:9201/9202 |
 | PostgreSQL `expenses_lab` | Общие расходы, версии, идемпотентность и события |
@@ -87,15 +87,15 @@ bash tools/build-client.sh
 
 ```bash
 ~/AuroraPlatformSDK/sdks/aurora_psdk/sdk-chroot rpmsign-external verify \
-  ~/Unik/web_mobile_unik/lab3/client/RPMS/com.example.expenseslab3-2.0.0-10.armv7hl.rpm
+  ~/Unik/web_mobile_unik/lab3/client/RPMS/com.example.expenseslab3-2.0.0-11.armv7hl.rpm
 ```
 
 Установка:
 
 ```bash
-scp -O client/RPMS/com.example.expenseslab3-2.0.0-10.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
+scp -O client/RPMS/com.example.expenseslab3-2.0.0-11.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
 ssh defaultuser@192.168.2.16 \
-  'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/com.example.expenseslab3-2.0.0-10.armv7hl.rpm'
+  'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/com.example.expenseslab3-2.0.0-11.armv7hl.rpm'
 ```
 
 Если версия/Release изменились, использовать имя из вывода сборщика. Ожидается `Installation successful`. При запрете тихой установки убрать `--silent` и подтвердить установку на телефоне. Не использовать `devel-su rpm -Uvh` для обычного приложения: ранее политика отвергала пакет как несистемный.
@@ -108,13 +108,13 @@ ssh defaultuser@192.168.2.16 \
 
 | Поле | Значение |
 |---|---|
-| Сервер | `https://192.168.0.104:9443` |
+| Сервер | `https://10.215.223.25:9443` |
 | Пользователь / пароль | `demo` / `demo12345` |
 | Сертификат | `/usr/share/com.example.expenseslab3/certificates/server.crt` |
 
 Выключить offline, войти, дождаться синхронизации и подключения push. Сервер задаётся через `https://`, WSS-сервис настраивается автоматически. Не вводить порт ЛР2 8443.
 
-В браузере ПК открыть `https://192.168.0.104:9443/`, войти под тем же `demo`:
+В браузере ПК открыть `https://10.215.223.25:9443/`, войти под тем же `demo`:
 
 1. Создать расход `Демо ЛР3 push`.
 2. Без нажатия «Синхронизировать» на телефоне дождаться появления записи, изменения счётчика событий и текста последнего события.
@@ -201,7 +201,7 @@ curl --cacert certificates/server.crt https://127.0.0.1:9443/meta
 sudo systemctl stop expenses@blue-1 expenses@blue-2
 ```
 
-На телефоне дождаться восстановления WSS на green; создать запись и проверить обратный push из браузера. URL остаётся `https://192.168.0.104:9443`, повторный вход обычно не требуется: JWT и БД общие.
+На телефоне дождаться восстановления WSS на green; создать запись и проверить обратный push из браузера. URL остаётся `https://10.215.223.25:9443`, повторный вход обычно не требуется: JWT и БД общие.
 
 Для показа новой функции green получить JWT в терминале B и вызвать summary:
 
@@ -238,7 +238,7 @@ curl -i --cacert certificates/server.crt https://127.0.0.1:9443/api/v1/summary \
 
 ```bash
 ssh defaultuser@192.168.2.16 \
-  'QT_LOGGING_TO_CONSOLE=1 /usr/bin/com.example.expenseslab3-tests https://192.168.0.104:9443 /usr/share/com.example.expenseslab3/certificates/server.crt --watch'
+  'QT_LOGGING_TO_CONSOLE=1 /usr/bin/com.example.expenseslab3-tests https://10.215.223.25:9443 /usr/share/com.example.expenseslab3/certificates/server.crt --watch'
 ```
 
 Дождаться вывода о подключении WSS/первых успешных запросах. Монитор ждёт сценарий до 10 минут. Затем **сразу** терминал B:
@@ -284,7 +284,7 @@ cd backend
 
 ```bash
 ssh defaultuser@192.168.2.16 \
-  'QT_LOGGING_TO_CONSOLE=1 /usr/bin/com.example.expenseslab3-tests https://192.168.0.104:9443 /usr/share/com.example.expenseslab3/certificates/server.crt'
+  'QT_LOGGING_TO_CONSOLE=1 /usr/bin/com.example.expenseslab3-tests https://10.215.223.25:9443 /usr/share/com.example.expenseslab3/certificates/server.crt'
 ```
 
 Ожидаются `PASS SQLite`, `PASS WSS native` и `PASS HTTPS native`. Тестовые программы используют временные локальные данные и собственные серверные записи. Offline-кэш и очередь клиента ЛР3 можно дополнительно показать по сценарию ЛР2, используя его собственный сервер 9443.

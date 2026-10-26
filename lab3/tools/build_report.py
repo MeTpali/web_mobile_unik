@@ -28,6 +28,7 @@ FILES = [
     ('deploy/scripts/exercise-cluster.py', 'Реальная проверка отказа, blue-green, отката и push под нагрузкой.'),
     ('deploy/scripts/stage-release.sh', 'Создание неизменяемого релиза.'),
     ('deploy/scripts/switch-release.sh', 'Проверка новой группы, переключение nginx и автозапуска.'),
+    ('deploy/scripts/update-tls.sh', 'Проверка новой пары TLS, резервная копия, reload nginx и откат при ошибке.'),
     ('tools/sign_package.sh', 'Подпись RPM штатной командой SDK.'),
     ('client/src/main.cpp', 'Точка входа нативного приложения и создание зависимостей.'),
     ('client/src/apiclient.h', 'Интерфейс HTTP-транспорта и структура ответа.'),
@@ -135,6 +136,9 @@ def generate():
         add(description)
         add(listing(path), 'code')
     add('2.2. Проверка', 'heading')
+    tls_log = ROOT / 'docs/tls-validation.txt'
+    if tls_log.exists() and 'PASS HTTPS native:' in tls_log.read_text():
+        add('26 октября 2026 года после смены сети обновлён сертификат nginx и установлен клиент com.example.expenseslab3-2.0.0-11 с новой доверенной копией. На телефоне по https://10.215.223.25:9443 прошли проверки сертификата и имени хоста, HTTPS, SQLite, offline CRUD, конфликтов, ETag, WSS и системных уведомлений. Журнал: docs/tls-validation.txt.')
     notification_log = ROOT / 'docs/notification-validation.txt'
     if notification_log.exists() and 'PASS system notifications:' in notification_log.read_text():
         add('26 октября 2026 года на телефоне прошла сквозная проверка системных уведомлений: внешние POST/PATCH/DELETE → WSS → штатный диспетчер ОС. Получен ненулевой ID, изменения заменяют одну запись; повторы и heartbeat отфильтрованы. Повторно прошли прежние HTTPS/SQLite/WSS-сценарии. Журнал: docs/notification-validation.txt. Пользователь также подтвердил работу системных уведомлений на телефоне при изменении расхода через браузер. Отдельная проверка обоих способов отображения не уточнялась. Показ баннера зависит от настроек ОС; получение после полного закрытия приложения не реализовано.')

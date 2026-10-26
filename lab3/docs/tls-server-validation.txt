@@ -1,0 +1,6 @@
+PASS HTTPS ready: {'status': 'ready', 'instance': 'blue-2', 'version': '1.0.2'}
+PASS WSS TLS: {'type': 'connected', 'instance': 'blue-1', 'version': '1.0.2'}
+PASS WSS expense.changed: POST blue-1
+PASS WSS expense.changed: PATCH blue-2
+PASS WSS expense.changed: DELETE blue-1
+PASS TLS rotation: HTTPS, WSS, CRUD, hostname verification enabled

@@ -3,97 +3,155 @@ import Sailfish.Silica 1.0
 
 Page {
     id: page
+    palette.colorScheme: Theme.DarkOnLight
+    palette.highlightColor: "#1565c0"
+    backgroundColor: "#f7f9fc"
     allowedOrientations: Orientation.All
     property var controller: tasksController
+    property int selectedStatus: 0
+    // Фильтруется только представление; исходные данные остаются в контроллере.
+    property var visibleTasks: {
+        var rows = controller.tasks
+        if (selectedStatus === 0) return rows
+        var state = ["", "todo", "doing", "done"][selectedStatus]
+        return rows.filter(function (row) { return row.status === state })
+    }
     SilicaListView {
         id: list
-        anchors.fill: parent
-        model: controller.tasks
-        PullDownMenu {
-            MenuItem { text: "Новая задача"; enabled: !controller.busy && controller.authenticated; onClicked: pageStack.push(Qt.resolvedUrl("TaskDialog.qml")) }
-            MenuItem { text: "Синхронизировать"; enabled: !controller.busy && controller.authenticated && !controller.offline; onClicked: controller.sync() }
-        }
+        anchors { fill: parent; bottomMargin: toolbar.height }
+        model: page.visibleTasks
+        spacing: Theme.paddingMedium
         header: Column {
             width: list.width
+            spacing: Theme.paddingMedium
             PageHeader { title: "Задачи ЛР3" }
-            SectionHeader { text: "Сервер и вход" }
-            TextField { id: server; width: parent.width; label: "HTTPS-адрес ПК"; text: controller.serverUrl; enabled: !controller.busy; inputMethodHints: Qt.ImhUrlCharactersOnly }
-            TextField { id: user; width: parent.width; label: "Пользователь"; text: controller.username; enabled: !controller.busy }
-            PasswordField { id: password; width: parent.width; label: "Пароль"; enabled: !controller.busy }
-            TextField { id: cert; width: parent.width; label: "Путь к доверенному сертификату"; text: controller.certificatePath; enabled: !controller.busy }
-            Button {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "Войти"; enabled: !controller.busy && !controller.offline
-                onClicked: { controller.login(server.text, user.text, password.text, cert.text); password.text = "" }
-            }
-            Button {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "Выйти"; enabled: !controller.busy && controller.authenticated
-                onClicked: controller.logout()
-            }
-            TextSwitch { text: "Работать offline"; description: "Не отправлять запросы, сохранять изменения на телефоне"; checked: controller.offline; enabled: !controller.busy; onClicked: controller.offline = checked }
             Label {
                 x: Theme.horizontalPageMargin; width: parent.width - 2*x
-                text: controller.status; wrapMode: Text.Wrap; color: Theme.highlightColor
+                text: "Мой план"; font.pixelSize: Theme.fontSizeExtraLarge; font.bold: true
             }
-            Label {
+            Row {
                 x: Theme.horizontalPageMargin; width: parent.width - 2*x
-                text: controller.pushStatus + "\nREST: " + controller.backend
-                wrapMode: Text.Wrap; font.pixelSize: Theme.fontSizeSmall
-            }
-            Label {
-                x: Theme.horizontalPageMargin; width: parent.width - 2*x
-                visible: controller.pushCount > 0
-                text: "Push-событий: " + controller.pushCount + " · " + controller.lastPush
-                wrapMode: Text.Wrap; color: Theme.highlightColor
-            }
-            BusyIndicator { anchors.horizontalCenter: parent.horizontalCenter; size: BusyIndicatorSize.Medium; running: controller.busy; visible: running }
-            Label {
-                x: Theme.horizontalPageMargin; width: parent.width - 2*x
-                text: "Изменений в очереди: " + controller.pendingCount; wrapMode: Text.Wrap
-            }
-            Column {
-                width: parent.width
-                visible: !!controller.conflictInfo.server
-                SectionHeader { text: "Конфликт изменений" }
-                Label {
-                    x: Theme.horizontalPageMargin; width: parent.width - 2*x; wrapMode: Text.Wrap
-                    text: {
-                        var info = controller.conflictInfo
-                        if (!info.server) return ""
-                        var s = info.server, l = info.payload
-                        return "Локально: " + l.due_date + " · " + l.title + " · " + l.status + " · " + l.description + (info.kind === "DELETE" ? " (удаление)" : "") +
-                                "\nНа сервере: " + s.due_date + " · " + s.title + " · " + s.status + " · " + s.description + (s.deleted ? " (удалено)" : "")
+                spacing: Theme.paddingSmall
+                Repeater {
+                    model: ["todo", "doing", "done"]
+                    Rectangle {
+                        width: (parent.width - 2*Theme.paddingSmall)/3
+                        height: Theme.itemSizeLarge
+                        radius: Theme.paddingMedium
+                        color: ["#e5edff", "#fff0d8", "#ddf3e9"][index]
+                        Column {
+                            anchors.centerIn: parent
+                            Label {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: controller.tasks.filter(function (r) { return r.status === modelData }).length
+                                font.pixelSize: Theme.fontSizeLarge; font.bold: true; color: "#172d40"
+                            }
+                            Label { text: ["В планах", "В работе", "Готово"][index]; font.pixelSize: Theme.fontSizeExtraSmall; color: "#33495a" }
+                        }
                     }
                 }
-                Button { text: "Принять серверную"; anchors.horizontalCenter: parent.horizontalCenter; enabled: !controller.busy; onClicked: controller.resolve(false) }
-                Button { text: "Сохранить локальную"; anchors.horizontalCenter: parent.horizontalCenter; enabled: !controller.busy; onClicked: controller.resolve(true) }
+            }
+            Label {
+                x: Theme.horizontalPageMargin; width: parent.width - 2*x
+                text: !controller.authenticated ? "Откройте подключение, чтобы войти" :
+                      (controller.offline ? "Локальный режим" : "Работа с сервером") + " · В очереди: " + controller.pendingCount
+                wrapMode: Text.Wrap; font.pixelSize: Theme.fontSizeSmall; color: "#43566a"
+            }
+            Label {
+                x: Theme.horizontalPageMargin; width: parent.width - 2*x
+                text: controller.status; wrapMode: Text.Wrap; font.pixelSize: Theme.fontSizeSmall
+                color: palette.highlightColor
             }
             Button {
-                anchors.horizontalCenter: parent.horizontalCenter; text: "Новая задача"
-                enabled: !controller.busy && controller.authenticated
-                onClicked: pageStack.push(Qt.resolvedUrl("TaskDialog.qml"))
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: !!controller.conflictInfo.server
+                text: "Разобрать конфликт"
+                onClicked: pageStack.push(Qt.resolvedUrl("ConnectionPage.qml"))
             }
-            SectionHeader { text: "Сохранённые задачи" }
-            Label { x: Theme.horizontalPageMargin; text: "Пока нет задач"; visible: list.count === 0 }
+            ComboBox {
+                width: parent.width; label: "Показать"; currentIndex: page.selectedStatus
+                onCurrentIndexChanged: page.selectedStatus = currentIndex
+                menu: ContextMenu {
+                    MenuItem { text: "Все задачи" }
+                    MenuItem { text: "В планах" }
+                    MenuItem { text: "В работе" }
+                    MenuItem { text: "Готово" }
+                }
+            }
+            Label {
+                x: Theme.horizontalPageMargin; width: parent.width - 2*x
+                visible: list.count === 0
+                text: page.selectedStatus ? "В этой группе пока пусто" : "Начните с новой задачи"
+                wrapMode: Text.Wrap
+            }
         }
         delegate: ListItem {
             id: entry
             property var row: modelData
-            contentHeight: details.height + 2*Theme.paddingMedium
-            enabled: !controller.busy && controller.authenticated
-            onClicked: pageStack.push(Qt.resolvedUrl("TaskDialog.qml"), {record: row})
-            menu: ContextMenu {
-                MenuItem { text: "Редактировать"; onClicked: pageStack.push(Qt.resolvedUrl("TaskDialog.qml"), {record: entry.row}) }
-                MenuItem { text: "Удалить"; onClicked: entry.remorseAction("Удаление", function () { controller.remove(entry.row.id) }) }
-            }
-            Column {
-                id: details; x: Theme.horizontalPageMargin; width: parent.width - 2*x; y: Theme.paddingMedium
-                Label { width: parent.width; text: row.due_date + " · " + row.title; wrapMode: Text.Wrap; color: Theme.highlightColor }
-                Label { width: parent.width; text: ({todo: "К выполнению", doing: "В работе", done: "Готово"})[row.status] + (row.conflict ? " · конфликт" : row.pending ? " · не отправлено" : ""); wrapMode: Text.Wrap }
-                Label { width: parent.width; text: row.description; visible: text.length > 0; font.pixelSize: Theme.fontSizeSmall; wrapMode: Text.Wrap }
+            contentHeight: cardContent.height + 3*Theme.paddingLarge
+            onClicked: if (controller.authenticated && !controller.busy) pageStack.push(Qt.resolvedUrl("TaskDialog.qml"), {record: row})
+            Rectangle {
+                x: Theme.horizontalPageMargin; width: parent.width - 2*x
+                height: parent.contentHeight - Theme.paddingSmall
+                radius: Theme.paddingLarge; color: "white"
+                Rectangle {
+                    x: 0; y: Theme.paddingLarge; width: Theme.paddingSmall; height: Theme.itemSizeSmall
+                    radius: width/2
+                    color: ({todo: "#3875df", doing: "#c17b18", done: "#24865e"})[entry.row.status] || "#3875df"
+                }
+                Column {
+                    id: cardContent
+                    x: Theme.paddingLarge; y: Theme.paddingLarge
+                    width: parent.width - 2*x; spacing: Theme.paddingSmall
+                    Label { width: parent.width; text: entry.row.title; font.bold: true; wrapMode: Text.Wrap }
+                    Label { width: parent.width; text: "Срок: " + entry.row.due_date; font.pixelSize: Theme.fontSizeSmall; color: "#52677a"; wrapMode: Text.Wrap }
+                    Label {
+                        width: parent.width
+                        text: ({todo: "В планах", doing: "В работе", done: "Готово"})[entry.row.status] +
+                              (entry.row.conflict ? " · конфликт" : entry.row.pending ? " · ожидает отправки" : "")
+                        font.pixelSize: Theme.fontSizeSmall; color: palette.highlightColor; wrapMode: Text.Wrap
+                    }
+                    Label { width: parent.width; text: entry.row.description; visible: text.length > 0; font.pixelSize: Theme.fontSizeSmall; wrapMode: Text.Wrap }
+                    Row {
+                        width: parent.width; spacing: Theme.paddingMedium
+                        Button {
+                            width: (parent.width - Theme.paddingMedium)/2; text: "Изменить"
+                            enabled: controller.authenticated && !controller.busy
+                            onClicked: pageStack.push(Qt.resolvedUrl("TaskDialog.qml"), {record: entry.row})
+                        }
+                        Button {
+                            width: (parent.width - Theme.paddingMedium)/2; text: "Удалить"
+                            enabled: controller.authenticated && !controller.busy
+                            onClicked: entry.remorseAction("Удаление задачи", function () { controller.remove(entry.row.id) })
+                        }
+                    }
+                }
             }
         }
         VerticalScrollDecorator {}
+    }
+    Rectangle {
+        id: toolbar
+        anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+        height: actions.height + 2*Theme.paddingMedium; color: "#e8eef8"
+        Row {
+            id: actions
+            x: Theme.paddingMedium; y: Theme.paddingMedium
+            width: parent.width - 2*x; spacing: Theme.paddingSmall
+            Button {
+                width: (parent.width - 2*Theme.paddingSmall)/3; text: "Настройки"
+                onClicked: pageStack.push(Qt.resolvedUrl("ConnectionPage.qml"))
+            }
+            Button {
+                width: (parent.width - 2*Theme.paddingSmall)/3; text: "Обновить"
+                enabled: controller.authenticated && !controller.offline && !controller.busy
+                onClicked: controller.sync()
+            }
+            Button {
+                width: (parent.width - 2*Theme.paddingSmall)/3; text: "+ Задача"
+                enabled: controller.authenticated && !controller.busy
+                onClicked: pageStack.push(Qt.resolvedUrl("TaskDialog.qml"))
+            }
+        }
     }
 }

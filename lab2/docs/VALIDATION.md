@@ -46,3 +46,11 @@ PASS HTTPS native: login, offline CRUD, restart, sync, conflicts, ETag 304
 Собраны, подписаны и одновременно установлены `com.example.expenseslab2` («Расходы · ЛР2») и `com.example.expenseslab3` («Расходы · ЛР3»). Оба QML-интерфейса запущены без ошибок загрузки. SQLite-базы созданы в отдельных каталогах `/home/defaultuser/.local/share/com.example/expenseslab2` и `expenseslab3`; QSettings разделены именами приложений. Пути файлов RPM не пересекаются. Старое приложение не удалялось.
 
 После разделения повторно прошли нативные тесты SQLite, HTTPS, offline CRUD, восстановления очереди, конфликтов и ETag. Текущий адрес ПК при проверке — `192.168.0.104`, он включён в сертификат. В поле сервера приложения следует указать этот IP вместо прежнего `192.168.0.118`. Результат — [client-separation-validation.txt](client-separation-validation.txt).
+
+## Обновление TLS при смене сети · 26 октября 2026
+
+ПК получил Wi-Fi IP 10.215.223.25 вместо прежнего 192.168.0.104. Ошибка воспроизведена curl: no alternative certificate subject name matches target host name. Сертификат ЛР2 перевыпущен с прежним закрытым ключом и SAN localhost, 127.0.0.1, 192.168.0.118, 192.168.0.104, 10.215.223.25, 192.168.2.8. Старые сертификат и ключ сохранены в /tmp/expenses-lab2-tls-backup-k18fp6uy с правами 600. Backend штатно перезапущен; SQLite и JWT-ключ не менялись.
+
+Клиент com.example.expenseslab2-1.0.0-4.armv7hl подписан и установлен с keepUserData. Сохранённый адрес приложения заменён на https://10.215.223.25:8443; путь к сертификату остался /usr/share/com.example.expenseslab2/certificates/server.crt. На ПК и реальном телефоне оба health через Wi-Fi и USB вернули status:ok с обязательной проверкой сертификата, без curl -k. Нативные SQLite/HTTPS-тесты прошли: вход, offline CRUD, восстановление очереди, синхронизация, конфликты, ETag 304. Журнал: [tls-validation.txt](tls-validation.txt).
+
+Исправление относится к запущенной ЛР2 «Расходы» на 8443. Сертификаты других серверов не заменялись. Предупреждение браузера о самоподписанном сертификате может требовать отдельного подтверждения доверия.

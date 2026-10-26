@@ -1,0 +1,14 @@
+Проверка на телефоне Аврора 5.2.1.200, 26 октября 2026.
+Установлен com.example.expenseslab3-2.0.0-11.armv7hl.rpm через sdk-deploy-rpm --silent --keepUserData.
+Адрес: https://10.215.223.25:9443
+curl --cacert /usr/share/com.example.expenseslab3/certificates/server.crt: {"status":"ready","instance":"blue-1","version":"1.0.2"}
+Проверка сертификата и имени хоста включена.
+Нативные тесты завершились с кодом 0:
+[I] unknown:0 - PASS SQLite: offline queue, restart, isolation, conflicts, tombstones
+[I] unknown:0 - Native WSS authenticated: "Push: blue-1 · v1.0.2"
+[I] notifyExpense:34 - System notification published: 106 POST
+[I] notifyExpense:34 - System notification published: 106 PATCH
+[I] notifyExpense:34 - System notification published: 106 DELETE
+[I] unknown:0 - PASS system notifications: WSS POST/PATCH/DELETE, OS ID, replacement, dedup, heartbeat ignored
+[I] unknown:0 - PASS WSS native: external CRUD push, automatic REST refresh "DELETE · blue-1"
+[I] unknown:0 - PASS HTTPS native: login, offline CRUD, restart, sync, conflicts, ETag 304

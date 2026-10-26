@@ -1,0 +1,6 @@
+Installing com.example.expenseslab2-1.0.0-4.armv7hl.rpm
+Installation successful
+{"status":"ok"}
+{"status":"ok"}
+[I] unknown:0 - PASS SQLite: offline queue, restart, isolation, conflicts, tombstones
+[I] unknown:0 - PASS HTTPS native: login, offline CRUD, restart, sync, conflicts, ETag 304

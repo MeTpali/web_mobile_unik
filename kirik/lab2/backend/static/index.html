@@ -4,24 +4,198 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Учёт задач — REST API</title>
   <style>
-    body{font:17px sans-serif;max-width:850px;margin:auto;padding:18px;background:#f1f5f9;color:#152535}
-    section{background:white;padding:18px;border-radius:12px;margin:14px 0}label{display:block;margin:10px 0}
-    input,textarea,select,button{box-sizing:border-box;font:inherit;padding:10px;max-width:100%}input,textarea{width:100%}
-    button{margin:5px;min-height:44px}pre{white-space:pre-wrap;overflow-wrap:anywhere}li{padding:12px 0}
-    @media(max-width:500px){body{padding:8px}section{padding:12px}button{width:100%;margin:5px 0}}
+* {
+    box-sizing:border-box
+}
+body {
+    margin:0;
+    background:#f5f7fb;
+    color:#192e45;
+    font:16px/1.5 sans-serif
+}
+.shell {
+    max-width:1280px;
+    margin:auto;
+    padding:30px 22px
+}
+.masthead {
+    border-bottom:2px solid #192e45;
+    margin-bottom:26px;
+    padding-bottom:24px;
+    display:flex;
+    justify-content:space-between;
+    gap:24px;
+    align-items:center
+}
+.eyebrow {
+    font-size:12px;
+    letter-spacing:3px;
+    color:#52677f
+}
+h1 {
+    font-size:42px;
+    margin:8px 0
+}
+.board {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 340px;
+    gap:24px
+}
+.task-list {
+    grid-column:1;
+    grid-row:1 / span 3
+}
+.editor,.account,.response {
+    grid-column:2
+}
+li h3 {
+    margin:12px 0 6px;
+    font-size:23px
+}
+li p {
+    margin:6px 0;
+    color:#52677f
+}
+.task-state {
+    font-size:12px;
+    border-radius:20px;
+    background:#dfe9fb;
+    color:#24477e;
+    padding:5px 12px
+}
+section {
+    margin-bottom:24px;
+    background:white;
+    border:1px solid #dde4ee;
+    border-radius:16px;
+    padding:24px;
+    min-width:0
+}
+h2 {
+    font-size:21px;
+    margin:0 0 20px
+}
+label {
+    display:block;
+    margin:14px 0;
+    font-size:14px;
+    color:#40556f
+}
+input,textarea,select,button {
+    font:inherit;
+    max-width:100%;
+    border-radius:8px;
+    min-height:44px
+}
+input,textarea,select {
+    display:block;
+    width:100%;
+    border:1px solid #bac8db;
+    padding:10px;
+    margin-top:6px;
+    background:#f9fbff;
+    color:#192e45
+}
+textarea {
+    min-height:90px;
+    resize:vertical
+}
+button {
+    cursor:pointer;
+    padding:10px 16px;
+    border:0;
+    background:#2458b7;
+    color:white;
+    margin:4px 8px 4px 0
+}
+button[type=button] {
+    background:#eaf0fa;
+    color:#24477e
+}
+button:disabled {
+    opacity:.5
+}
+input:focus,select:focus,textarea:focus,button:focus {
+    outline:3px solid #c08927;
+    outline-offset:2px
+}
+ul {
+    list-style:none;
+    padding:0
+}
+li {
+    padding:20px;
+    margin-top:14px;
+    background:#f7f9fe;
+    border-left:4px solid #4678cb;
+    border-radius:0 12px 12px 0;
+    overflow-wrap:anywhere
+}
+li button {
+    margin-top:12px
+}
+pre {
+    font-size:13px;
+    white-space:pre-wrap;
+    overflow-wrap:anywhere;
+    margin:0
+}
+.response {
+    background:#edf2fa
+}
+a {
+    color:#2458b7
+}
+@media(max-width:850px) {
+    .board {
+        display:flex;
+        flex-direction:column
+    }
+    .account {
+        order:0
+    }
+    .task-list {
+        order:1
+    }
+    .editor {
+        order:2
+    }
+    .response {
+        order:3
+    }
+    .masthead {
+        display:block
+    }
+    h1 {
+        font-size:34px
+    }
+}
+@media(max-width:420px) {
+    .shell {
+        padding:20px 12px
+    }
+    section {
+        padding:18px
+    }
+    button {
+        width:100%;
+        margin:6px 0
+    }
+}
   </style>
 </head>
 <body>
-  <h1>Учёт задач</h1>
-  <p>Тестовая страница REST API v1. Все ресурсы загружаются с этого сервера. <a href="/docs">Swagger UI</a></p>
-  <section>
-    <h2>Вход</h2>
+  <main class="shell">
+  <header class="masthead"><div><div class="eyebrow">KIRIK / ЛАБОРАТОРНАЯ 02</div><h1>Рабочая доска</h1><p>Планируйте задачи и следите за их выполнением.</p></div><a href="/docs">Документация API →</a></header>
+  <div class="board">
+  <section class="account">
+    <h2>Учётная запись</h2>
     <form id="login"><label>Пользователь<input id="username" value="demo" required autocomplete="username"></label>
       <label>Пароль<input id="password" type="password" required autocomplete="current-password"></label>
       <button>Войти</button><button type="button" id="logout">Выйти</button></form>
   </section>
-  <section>
-    <h2>Создать или изменить задачу</h2>
+  <section class="editor">
+    <h2>Карточка задачи</h2>
     <form id="task"><input id="recordId" type="hidden"><input id="version" type="hidden">
       <label>Срок<input id="due_date" type="date" required></label>
       <label>Заголовок<input id="title" maxlength="160" required></label>
@@ -30,7 +204,8 @@
       <button>Сохранить</button><button type="button" id="reset">Очистить форму</button>
     </form>
   </section>
-  <section><h2>Задачи</h2><button id="refresh">Обновить список</button><ul id="list"></ul></section>
-  <section><h2>Последний HTTP-ответ</h2><pre id="status" role="status">Войдите в систему.</pre></section>
+  <section class="task-list"><div class="eyebrow">МОЙ ПЛАН</div><h2>Задачи</h2><button id="refresh">Обновить список</button><ul id="list"></ul></section>
+  <section class="response"><h2>Состояние запроса</h2><pre id="status" role="status">Войдите в систему.</pre></section>
+  </div></main>
   <script src="/browser.js"></script>
 </body></html>
