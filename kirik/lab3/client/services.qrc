@@ -1,1 +1,2 @@
+<!-- Настройки и зависимости компонента. Импорты подключают зависимости; основной код выполняет одну роль в цепочке приложения. -->
 <RCC><qresource prefix="/services"><file alias="PushSocket.qml">services/PushSocket.qml</file><file alias="SystemNotification.qml">qml/services/SystemNotification.qml</file></qresource></RCC>

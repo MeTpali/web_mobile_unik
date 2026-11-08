@@ -1,3 +1,5 @@
+// HTTP-транспорт или обработка действий пользователя. Импорты подключают зависимости; основной код
+// выполняет одну роль в цепочке приложения.
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { calculate } from './calculator.js';
@@ -6,11 +8,13 @@ app.get('/api/health', (_req, res) => res.json({status: 'ok'}));
 app.post('/api/calculate', (req, res, next) => {
   if (!req.is('application/json')) return res.status(415).json({error: {code:'CONTENT_TYPE', message:'Ожидается application/json'}});
   next();
+// Middleware разбирает JSON и ограничивает размер. Предметные поля всё равно проверяются далее.
 }, express.json({limit:'4kb', strict:false}), (req, res) => {
   try { res.set('Cache-Control','no-store').json(calculate(req.body)); }
   catch (error) { res.status(400).json({error:{code:'INVALID_OPERATION',message:error.message}}); }
 });
 app.use('/api', (_req,res) => res.status(404).json({error:{code:'NOT_FOUND',message:'Маршрут не найден'}}));
+// Раздаём готовые файлы UI с того же origin, где API: отдельный CORS не требуется.
 app.use(express.static(fileURLToPath(new URL('../public/', import.meta.url))));
 app.use((error, _req, res, _next) => {
   const status = error.status === 400 ? 400 : error.status === 413 ? 413 : 500;

@@ -1,3 +1,7 @@
+// Бизнес-логика и состояние: подключение, валидация, корреляция по request_id, запрет параллельной
+// генерации, тайм-аут и история последних десяти результатов. Контроллер связывает UI и сервисы.
+// Сначала данные проверяются/сохраняются, затем выполняется обмен; сигналы уведомляют UI о новом
+// состоянии. UI не должен дублировать сетевой протокол.
 // Контроллер отделяет действия пользователя от виджетов и WebSocket.
 // dart:async нужен для Timer, StreamSubscription и unawaited.
 // ChangeNotifier сообщает UI, что состояние изменилось.
@@ -26,18 +30,26 @@ class GeneratorController extends ChangeNotifier {
   // можно передать FakeRandomService с теми же методами.
   final RandomService _service;
   final Duration responseTimeout;
+  // Сохраняем подписку, чтобы отменить её при закрытии и не получать события после уничтожения экрана.
+  // Подписка на поток кадров. Сохраняется для отмены при disconnect/dispose.
   late final StreamSubscription<RandomServiceEvent> _subscription;
   GeneratorConnectionState _status = GeneratorConnectionState.disconnected;
   String? _error;
+  // Недавние успешные результаты. Снаружи отдаётся неизменяемое представление, чтобы UI не менял
+  // состояние в обход контроллера.
   final List<RandomResult> _history = [];
   // Ненулевой ID одновременно обозначает наличие активного запроса.
   // Диапазон сохраняем на момент отправки для проверки ответа.
   String? _requestId;
   NumberRange? _pendingRange;
+  // Таймер ожидания ответа. Он должен отменяться при завершении команды или отключении.
   Timer? _timer;
+  // Счётчик request_id внутри запуска, чтобы отличать последовательные пользовательские команды.
   int _sequence = 0;
   // Номер попытки подключения защищает от позднего завершения старого Future.
+  // Счётчик поколений соединения. Увеличение делает callbacks прежнего подключения неактуальными.
   int _generation = 0;
+  // Флаг завершения контроллера. Поздний callback не должен уведомлять уже уничтоженный экран.
   bool _disposed = false;
 
   // Снаружи доступны только геттеры. UI не должен изменять состояние
@@ -50,9 +62,12 @@ class GeneratorController extends ChangeNotifier {
   bool get canGenerate =>
       _status == GeneratorConnectionState.connected && !waiting;
 
+  // Асинхронное подключение с тайм-аутом. Поколение запроса отличает текущую попытку от позднего
+  // завершения старой.
   Future<void> connect(String address) async {
     // URI разбирается до обращения к сети. Адрес обязан содержать ws/wss
     // и имя сервера; логин в URL и фрагмент #... здесь не используются.
+    // Разбираем адрес без исключения. Схема ws/wss, хост и запрет userInfo/fragment проверяются отдельно.
     final uri = Uri.tryParse(address.trim());
     if (uri == null ||
         !['ws', 'wss'].contains(uri.scheme) ||
@@ -60,6 +75,8 @@ class GeneratorController extends ChangeNotifier {
         uri.hasFragment ||
         uri.userInfo.isNotEmpty) {
       _error = 'Введите адрес вида ws://192.168.1.10:8000/ws/random';
+      // Сообщаем слушателям об изменении состояния. Это инициирует перестроение UI, а не дополнительный
+      // запрос.
       notifyListeners();
       return;
     }
@@ -68,14 +85,22 @@ class GeneratorController extends ChangeNotifier {
     // поэтому завершение отменённой попытки больше не обновит UI.
     final generation = _generation;
     _status = GeneratorConnectionState.connecting;
+    // Сообщаем слушателям об изменении состояния. Это инициирует перестроение UI, а не дополнительный
+    // запрос.
     notifyListeners();
     try {
       // await освобождает поток UI на время подключения; это не sleep.
       await _service.connect(uri);
+      // Проверяем поколение подключения: прежняя попытка может завершиться позже новой, но не должна менять
+      // её состояние.
       if (_disposed || generation != _generation) return;
       _status = GeneratorConnectionState.connected;
+      // Сообщаем слушателям об изменении состояния. Это инициирует перестроение UI, а не дополнительный
+      // запрос.
       notifyListeners();
     } catch (_) {
+      // Проверяем поколение подключения: прежняя попытка может завершиться позже новой, но не должна менять
+      // её состояние.
       if (_disposed || generation != _generation) return;
       _fail('Не удалось подключиться. Проверьте адрес, сеть и запуск сервера');
     }
@@ -88,6 +113,8 @@ class GeneratorController extends ChangeNotifier {
     final range = NumberRange(minimum, maximum);
     if (!range.isValid) {
       _error = 'Некорректный диапазон';
+      // Сообщаем слушателям об изменении состояния. Это инициирует перестроение UI, а не дополнительный
+      // запрос.
       notifyListeners();
       return;
     }
@@ -98,6 +125,8 @@ class GeneratorController extends ChangeNotifier {
     _error = null;
     // Это тайм-аут ответа на запрос, а не установки соединения.
     // После него старый запрос автоматически не повторяем.
+    // Таймер ограничивает ожидание. При ответе/disconnect отменяется, иначе поздний timeout испортил бы
+    // уже успешное состояние.
     _timer = Timer(responseTimeout, () {
       _fail(
           'Сервер не ответил за ${responseTimeout.inSeconds} секунд. Подключитесь снова');
@@ -108,9 +137,13 @@ class GeneratorController extends ChangeNotifier {
       _fail('Не удалось отправить запрос. Подключитесь снова');
       return;
     }
+    // Сообщаем слушателям об изменении состояния. Это инициирует перестроение UI, а не дополнительный
+    // запрос.
     notifyListeners();
   }
 
+  // Обрабатывает типизированное событие сервиса, меняет состояние контроллера и уведомляет UI через
+  // notifyListeners.
   void _onEvent(RandomServiceEvent event) {
     if (_disposed) return;
     // Потеря транспорта отличается от прикладной ошибки сервера:
@@ -131,15 +164,21 @@ class GeneratorController extends ChangeNotifier {
         return;
       }
       // Новые результаты находятся в начале; память ограничена 10 записями.
+      // Добавляем успешный результат в начало, чтобы последняя операция была первой в истории.
       _history.insert(0, result);
+      // Оставляем только десять последних результатов: история не растёт бесконечно в памяти.
       if (_history.length > 10) _history.removeLast();
     }
     _error = event.error;
     _clearRequest();
+    // Сообщаем слушателям об изменении состояния. Это инициирует перестроение UI, а не дополнительный
+    // запрос.
     notifyListeners();
   }
 
   // Завершаем ожидание независимо от исхода, отменяя таймер.
+  // Сбрасывает ожидаемый запрос и его таймер после результата/ошибки/разрыва, иначе UI остался бы
+  // заблокированным.
   void _clearRequest() {
     _timer?.cancel();
     _timer = null;
@@ -147,25 +186,40 @@ class GeneratorController extends ChangeNotifier {
     _pendingRange = null;
   }
 
+  // Сбрасывает ожидание и сохраняет понятную ошибку. notifyListeners сообщает экрану, что её нужно
+  // показать.
   void _fail(String message) {
     disconnect();
     _error = message;
+    // Сообщаем слушателям об изменении состояния. Это инициирует перестроение UI, а не дополнительный
+    // запрос.
     notifyListeners();
   }
 
   // Отключение сбрасывает сетевое состояние, но оставляет историю сеанса.
+  // Закрывает сокет/подписку и делает старые callbacks устаревшими. unawaited помечает намеренное
+  // завершение в фоне.
   void disconnect() {
+    // Смена поколения сразу делает callbacks старого подключения устаревшими, даже если cancel/close ещё
+    // завершаются в фоне.
     ++_generation;
     _service.disconnect();
     _clearRequest();
     _error = null;
     _status = GeneratorConnectionState.disconnected;
+    // Сообщаем слушателям об изменении состояния. Это инициирует перестроение UI, а не дополнительный
+    // запрос.
     if (!_disposed) notifyListeners();
   }
 
+  // Реализуем метод родителя/интерфейса. Анализатор проверяет совпадение имени и сигнатуры.
   @override
+  // Освобождает подписки, таймеры и контроллеры ввода: закрытый экран не должен получать события и
+  // удерживать ресурсы.
   void dispose() {
     _disposed = true;
+    // Смена поколения сразу делает callbacks старого подключения устаревшими, даже если cancel/close ещё
+    // завершаются в фоне.
     ++_generation;
     _clearRequest();
     // dispose синхронный, поэтому Future отмены не ожидаем.

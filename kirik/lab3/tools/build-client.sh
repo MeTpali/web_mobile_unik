@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
+# Сценарий подготовки и сборки. Импорты подключают зависимости; основной код выполняет одну роль в
+# цепочке приложения.
+# Строгий Bash: -e прерывает необработанную ошибку, -u запрещает неопределённую переменную, pipefail
+# учитывает сбой внутри конвейера.
 set -euo pipefail
+# Находим корень относительно файла скрипта, а не произвольного текущего каталога запуска.
 lab_root=$(cd -- "$(dirname -- "$0")/.." && pwd)
 lab_psdk=${LAB_PSDK:-"$HOME/AuroraPlatformSDK/sdks/aurora_psdk"}
 lab_sdk=${LAB_SDK:-"$HOME/AuroraOS"}
@@ -14,6 +19,7 @@ cd "$lab_root/client"
   tail -60 build.log >&2
   exit 1
 }
+# Номер релиза из аргумента проверяется до создания каталога. Опубликованную версию не переписываем.
 lab_version=$(awk '/^Version:/ {print $2}' rpm/ru.kirik.taskslab3.spec)
 lab_release=$(awk '/^Release:/ {print $2}' rpm/ru.kirik.taskslab3.spec)
 lab_rpm="$lab_root/client/RPMS/ru.kirik.taskslab3-$lab_version-$lab_release.armv7hl.rpm"

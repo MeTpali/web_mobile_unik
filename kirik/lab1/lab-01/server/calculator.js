@@ -1,3 +1,5 @@
+// Арифметическая логика HTTP-калькулятора. Импорты подключают зависимости; основной код выполняет одну
+// роль в цепочке приложения.
 // Чистая предметная функция, не зависящая от HTTP или DOM.
 export function calculate(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Ожидается объект');

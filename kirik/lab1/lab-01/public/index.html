@@ -1,24 +1,33 @@
+<!-- Браузерный интерфейс. HTML задаёт структуру и доступные подписи. id связывает элемент с JavaScript, class — с CSS. Данные приходят через отдельный сетевой скрипт. -->
 <!doctype html>
 <html lang="ru">
 <head>
+  <!-- Метаданные: UTF-8 обеспечивает русский текст, viewport согласует CSS-ширину с мобильным экраном. -->
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Калькулятор</title><link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <main class="workspace">
     <header><p class="eyebrow">KIRIK / ЛАБОРАТОРНАЯ 01</p><h1>Считаем<br>по порядку.</h1><p>Два числа, одно действие — готовый результат.</p></header>
+    <!-- Смысловая область формы/списка/результата; class задаёт её положение через CSS. -->
     <section class="calculator-panel" aria-label="Вычисление">
+      <!-- Группа полей. JavaScript перехватывает submit по id, сохраняя страницу без перезагрузки. -->
       <form id="calculator">
         <div class="operands">
+          <!-- Подпись объясняет ввод; вложенный input связывается с ней без отдельного for. -->
           <label><span>01 · Первое число</span><input id="a" inputmode="decimal" value="12.5" required></label>
+          <!-- Подпись объясняет ввод; вложенный input связывается с ней без отдельного for. -->
           <label class="operation"><span>Действие</span><select id="operation"><option>+</option><option>-</option><option>*</option><option>/</option></select></label>
+          <!-- Подпись объясняет ввод; вложенный input связывается с ней без отдельного for. -->
           <label><span>02 · Второе число</span><input id="b" inputmode="decimal" value="2" required></label>
         </div>
+        <!-- Кнопка формы по умолчанию отправляет submit. Для вспомогательных действий нужен type=button. -->
         <button id="submit">Получить результат →</button>
       </form>
       <div class="answer"><span>РЕЗУЛЬТАТ</span><p id="result" aria-live="polite"></p><p id="error" role="alert"></p></div>
     </section>
   </main>
+  <!-- JS подключён после DOM: элементы существуют к моменту регистрации обработчиков. -->
   <script src="/api.js"></script><script src="/app.js"></script>
 </body>
 </html>

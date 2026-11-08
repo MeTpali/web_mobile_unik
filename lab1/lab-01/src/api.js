@@ -1,3 +1,6 @@
+// Сетевой слой клиента: POST /api/random через fetch, отмена по тайм-ауту, проверка HTTP-статуса и
+// структуры JSON-ответа. Импорты подключают зависимости; основной код выполняет одну роль в цепочке
+// приложения.
 /** Сетевой слой клиента. Не зависит от React и потому тестируется отдельно.
  * Возвращает Promise с результатом либо отклоняет его с понятной Error.message.
  * HTTP, JSON и проверка ответа скрыты от компонента App.
@@ -17,6 +20,7 @@ export async function requestRandom(min, max) {
       response = await fetch('/api/random', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        // Преобразуем объект в JSON-тело с ключами серверной схемы; Content-Type сообщает формат.
         body: JSON.stringify({ min, max }), // Объект JS преобразуется в текст JSON.
         signal: controller.signal,
       });
@@ -38,6 +42,7 @@ export async function requestRandom(min, max) {
     // fetch не отклоняет Promise только из-за HTTP 400/500; статус проверяем сами.
     // ok истинен для статусов 200–299. ?. безопасен при null/отсутствующих полях.
     if (!response.ok) {
+      // Человекочитаемый статус последней/текущей операции, который экран показывает пользователю.
       const message = data?.error?.message;
       throw new Error(typeof message === 'string' && message.trim()
         ? message

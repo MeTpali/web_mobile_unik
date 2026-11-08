@@ -1,3 +1,6 @@
+# Метаданные Flutter-приложения, зависимости, версия и разрешение Internet для ОС Аврора. Имя пакета
+# calculator сохранено из исходного проекта. YAML описывает пакет Flutter, SDK, зависимости и ресурсы.
+# Отступы задают вложенность; версии фиксируются lock-файлом.
 name: calculator
 organization: "com.example"
 license: "Proprietary"
@@ -20,6 +23,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # of the product and file versions while build-number is used as the build suffix.
 version: 1.0.0+1
 
+# Совместимые версии SDK: другая версия может не понимать используемые API.
 environment:
   sdk: ^3.6.0
 
@@ -29,7 +33,9 @@ environment:
 # dependencies can be manually updated by changing the version numbers below to
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
+# Библиотеки исполнения Flutter; инструменты разработки перечислены отдельно ниже.
 dependencies:
+  # Ресурсы, Material и параметры Flutter-пакета.
   flutter:
     sdk: flutter
 
@@ -37,6 +43,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+# Анализ/тесты и прочие зависимости разработки, не серверный протокол.
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -52,6 +59,7 @@ dev_dependencies:
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
+# Ресурсы, Material и параметры Flutter-пакета.
 flutter:
 
   # The following line ensures that the Material Icons font is
