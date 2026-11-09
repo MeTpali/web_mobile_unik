@@ -1,3 +1,5 @@
+// Настройки и зависимости компонента. WSS — постоянное соединение событий. Авторизация подтверждается
+// connected; уведомление приводит к REST-обновлению, а не прямой записи кадра в SQLite.
 #include "pushservice.h"
 #include <QJsonDocument>
 #include <QQmlComponent>
@@ -30,12 +32,20 @@ QObject *sharedTransport(QQmlEngine *engine, QString &error) {
 
 // Штатный QML-модуль QtWebSockets уже установлен на телефоне. Адаптер из
 // ресурса открывает сокет; таймеры и бизнес-события обрабатывает сервис C++.
+// Конструктор подготавливает транспорт/таймеры. parent задаёт владение QObject: дочерние объекты
+// освобождаются вместе с владельцем.
 PushService::PushService(QObject *parent) : QObject(parent), engine(sharedEngine()),
     initialSsl(QSslConfiguration::defaultConfiguration()) {
     retry.setSingleShot(true); deadline.setSingleShot(true);
     watchdog.setInterval(5000);
+    // Связываем сигнал с обработчиком. Он сработает позже при событии, захват this обращается к текущему
+    // объекту.
     connect(&retry, &QTimer::timeout, this, &PushService::open);
+    // Связываем сигнал с обработчиком. Он сработает позже при событии, захват this обращается к текущему
+    // объекту.
     connect(&deadline, &QTimer::timeout, this, [this]() { disposeSocket(); schedule(); });
+    // Связываем сигнал с обработчиком. Он сработает позже при событии, захват this обращается к текущему
+    // объекту.
     connect(&watchdog, &QTimer::timeout, this, [this]() {
         if (lastMessage.isValid() && lastMessage.elapsed() > 35000) { disposeSocket(); schedule(); }
     });
@@ -46,52 +56,75 @@ PushService::~PushService() {
     wanted = false; retry.stop(); deadline.stop(); watchdog.stop();
     disposeSocket();
 }
+// Отключает сигналы старого транспорта и деактивирует его, чтобы прежние callbacks не изменили новое
+// соединение.
 void PushService::disposeSocket() {
     if (socket) {
+        // Отсоединяем прежние сигналы/callbacks. Разрушение или закрытие транспорта не должно
+        // вызывать обработчик уже завершающегося контроллера.
         socket->disconnect(this);
         socket->setProperty("active", false);
         socket = nullptr;
     }
 }
+// Останавливает таймеры/сокет и очищает состояние доставки при offline, logout или завершении.
 void PushService::stop() {
     wanted = false; retry.stop(); deadline.stop(); watchdog.stop();
-    disposeSocket(); seen.clear();
+    // Очищаем активный WSS-backend при отключении: UI не должен считать прежний сервер подключённым.
+    disposeSocket(); seen.clear(); activeBackend.clear();
     emit statusChanged("Push отключён");
 }
+// Запускает WSS с текущими URL/JWT/сертификатом. Совпадающие активные параметры не создают второе
+// соединение.
 void PushService::start(const QString &url, const QString &token, const QString &certificate) {
+    // Те же параметры уже обслуживаются: повтор sync не должен открывать дубликат WSS.
     if (wanted && baseUrl == url && authToken == token && certificatePath == certificate) return;
     stop(); baseUrl = url; authToken = token; certificatePath = certificate;
     wanted = true; backoff = 1000;
     // Даём закрытию прежней сессии пройти через event loop перед повторным open.
     retry.start(50);
 }
+// Планирует повтор с растущей паузой backoff и пределом, защищая сервер от шквала переподключений.
 void PushService::schedule() {
     deadline.stop(); watchdog.stop();
+    // Очищаем активный WSS-backend при отключении: UI не должен считать прежний сервер подключённым.
+    activeBackend.clear();
     if (!wanted || retry.isActive()) return;
     emit statusChanged(QString("Нет push-соединения. Повтор через %1 с").arg(backoff / 1000));
     retry.start(backoff); backoff = qMin(backoff * 2, 30000);
 }
+// Настраивает WSS/TLS и deadline для ожидания авторизованного соединения. Само открытие сокета ещё не
+// означает успешную авторизацию.
 void PushService::open() {
     if (!wanted) return;
     disposeSocket();
     auto ssl = initialSsl;
     auto certs = ssl.caCertificates(); certs.append(QSslCertificate::fromPath(certificatePath));
+    // Добавляем публичный сертификат в доверие. Проверка имени/IP сохраняется, приватный ключ сервера
+    // клиенту не нужен.
     ssl.setCaCertificates(certs);
     // QML WebSocket берёт defaultConfiguration при создании. SAN проверяется.
     // Старый Qt может блокироваться при смене глобальной SSL-конфигурации
     // во время параллельного HTTP-запроса. Для того же сертификата не меняем её.
     static QString appliedCertificate;
     if (appliedCertificate != certificatePath) {
+        // QML WebSocket берёт настройки SSL при создании. Повторная смена глобального доверия во время HTTPS
+        // нежелательна на старом Qt.
         QSslConfiguration::setDefaultConfiguration(ssl);
         appliedCertificate = certificatePath;
     }
+    // Человекочитаемая транспортная/API-ошибка. Пустая строка означает отсутствие зафиксированной ошибки.
     QString error;
     socket = sharedTransport(engine, error);
     if (!socket) {
         emit statusChanged("QtWebSockets недоступен: " + error);
         schedule(); return;
     }
+    // Связываем сигнал с обработчиком. Он сработает позже при событии, захват this обращается к текущему
+    // объекту.
     connect(socket, SIGNAL(textReceived(QString)), this, SLOT(receive(QString)));
+    // Связываем сигнал с обработчиком. Он сработает позже при событии, захват this обращается к текущему
+    // объекту.
     connect(socket, SIGNAL(lost()), this, SLOT(schedule()));
     QUrl url(baseUrl); url.setScheme("wss"); url.setPath("/api/v1/events");
     socket->setProperty("url", url.toString());
@@ -99,14 +132,19 @@ void PushService::open() {
     emit statusChanged("Подключение push…");
     deadline.start(10000); socket->setProperty("active", true);
 }
+// Разбирает кадр: connected подтверждает вход, доменные события вызывают обновление, heartbeat
+// поддерживает живость. Повторные event_id отбрасываются.
 void PushService::receive(QString message) {
     lastMessage.restart();
+    // Разбираем JSON-байты в документ Qt. Проверка ошибки и формы результата обязательна до использования
+    // полей.
     const auto doc = QJsonDocument::fromJson(message.toUtf8());
     if (!doc.isObject()) return;
     const auto event = doc.object();
     if (event.value("type") == "connected") {
         deadline.stop(); backoff = 1000; lastMessage.start(); watchdog.start();
-        emit statusChanged("Push: " + event.value("instance").toString() + " · v" + event.value("version").toString());
+        activeBackend = event.value("instance").toString() + " · v" + event.value("version").toString();
+        emit statusChanged("Push: " + activeBackend);
         emit connected(); return;
     }
     if (event.value("type") != "task.changed" && event.value("type") != "resync") return;

@@ -39,25 +39,37 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 class Input(BaseModel):
+
     model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
 
 class Login(Input):
+
     username: str = Field(min_length=1, max_length=80)
+
     password: str = Field(min_length=1, max_length=256)
 
 class ExpenseFields(Input):
+
     date: Date
+
     category: str = Field(min_length=1, max_length=80)
+
     amount_minor: int = Field(strict=True, gt=0, le=1_000_000_000_00)
+
     comment: str = Field(default='', max_length=2000)
 
 class ExpenseCreate(ExpenseFields):
+
     id: UUID
 
 class ExpensePatch(Input):
+
     date: Date | None = None
+
     category: str | None = Field(default=None, min_length=1, max_length=80)
+
     amount_minor: int | None = Field(default=None, strict=True, gt=0, le=1_000_000_000_00)
+
     comment: str | None = Field(default=None, max_length=2000)
 ```
 
@@ -72,12 +84,14 @@ import secrets
 from contextlib import contextmanager
 
 import psycopg
+
 from psycopg.rows import dict_row
 
 def password_hash(password: str, salt: str) -> str:
     return hashlib.pbkdf2_hmac('sha256', password.encode(), bytes.fromhex(salt), 200_000).hex()
 
 class Database:
+
     def __init__(self, dsn):
         self.dsn = dsn
 
@@ -86,25 +100,32 @@ class Database:
 
         with psycopg.connect(self.dsn, row_factory=dict_row, connect_timeout=3,
                              options='-c statement_timeout=5000') as conn:
+
             yield conn
 
     def initialize(self):
+
         with self.connect() as db:
 
             db.execute('SELECT pg_advisory_xact_lock(73103001)')
+
             db.execute('''CREATE TABLE IF NOT EXISTS users (
                 username TEXT PRIMARY KEY, salt TEXT NOT NULL,
                 password_hash TEXT NOT NULL, role TEXT NOT NULL)''')
+
             db.execute('''CREATE TABLE IF NOT EXISTS expenses (
                 id TEXT PRIMARY KEY, owner TEXT NOT NULL REFERENCES users(username),
                 date TEXT NOT NULL, category TEXT NOT NULL, amount_minor BIGINT NOT NULL,
                 comment TEXT NOT NULL, version INTEGER NOT NULL, updated_at TEXT NOT NULL,
                 deleted INTEGER NOT NULL DEFAULT 0)''')
+
             db.execute('''CREATE TABLE IF NOT EXISTS operations (
                 owner TEXT NOT NULL, key TEXT NOT NULL, fingerprint TEXT NOT NULL,
                 status INTEGER NOT NULL, response TEXT, PRIMARY KEY(owner,key))''')
             for name, role in [('demo', 'writer'), ('viewer', 'reader')]:
+
                 salt = secrets.token_hex(16)
+
                 db.execute('INSERT INTO users VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING',
                            (name, salt, password_hash(os.getenv('LAB_DEMO_PASSWORD', 'demo12345'), salt), role))
 ```
@@ -127,10 +148,15 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import jwt
+
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
+
 from fastapi.exceptions import RequestValidationError
+
 from fastapi.responses import FileResponse, JSONResponse
+
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 from fastapi.openapi.utils import get_openapi
 
 from .push import PushHub
@@ -138,6 +164,7 @@ from .schemas import ExpenseCreate, ExpensePatch, Login
 from .storage import Database, password_hash
 
 ROOT = Path(__file__).resolve().parents[1]
+
 bearer = HTTPBearer(auto_error=False)
 
 def now():
@@ -145,19 +172,27 @@ def now():
 
 def expense(row):
     result = dict(row)
+
     result.pop('owner', None)
+
     result['deleted'] = bool(result['deleted'])
     return result
 
 def create_app(dsn=None, secret=None, release=None, instance=None):
+
     dsn = dsn or os.environ['DATABASE_URL']
+
     secret = secret or os.environ['JWT_SECRET']
     if len(secret) < 32:
         raise ValueError('JWT_SECRET должен иметь не менее 32 символов')
     release = release or json.loads((Path(__file__).parent / 'release.json').read_text())
+
     instance = instance or os.getenv('INSTANCE_ID', 'dev-1')
+
     db = Database(dsn)
+
     db.initialize()
+
     hub = PushHub(dsn)
     app = FastAPI(title='Учёт расходов — лабораторная №3', version=release['version'], lifespan=hub.lifespan,
         description='Сумма в копейках. Для мутаций нужен Idempotency-Key; для PATCH/DELETE — If-Match с версией в кавычках.',
@@ -186,10 +221,14 @@ def create_app(dsn=None, secret=None, release=None, instance=None):
             if request.headers.get('content-type', '').split(';')[0].strip() != 'application/json':
                 return JSONResponse(status_code=415, content={'detail': 'Требуется application/json'})
         response = await call_next(request)
+
         response.headers['X-Backend-ID'] = instance
+
         response.headers['X-App-Version'] = release['version']
+
         response.headers['X-Content-Type-Options'] = 'nosniff'
         if 'cache-control' not in response.headers:
+
             response.headers['Cache-Control'] = 'no-store'
         return response
 
@@ -197,9 +236,12 @@ def create_app(dsn=None, secret=None, release=None, instance=None):
         try:
             if credentials is None:
                 raise ValueError()
+
             payload = jwt.decode(credentials.credentials, secret, algorithms=['HS256'],
                                  options={'require': ['exp', 'sub']})
+
             with db.connect() as conn:
+
                 row = conn.execute('SELECT * FROM users WHERE username=%s', (payload['sub'],)).fetchone()
             if row is None:
                 raise ValueError()
@@ -227,13 +269,17 @@ def create_app(dsn=None, secret=None, release=None, instance=None):
 
     @app.post('/api/v1/auth/login')
     def login(body: Login):
+
         with db.connect() as conn:
+
             row = conn.execute('SELECT * FROM users WHERE username=%s', (body.username,)).fetchone()
+
         salt = row['salt'] if row else '00' * 16
         checked = password_hash(body.password, salt)
         if not row or not hmac.compare_digest(checked, row['password_hash']):
             raise HTTPException(401, 'Неправильное имя пользователя или пароль',
                                 headers={'WWW-Authenticate': 'Bearer'})
+
         token = jwt.encode({'sub': row['username'], 'exp': datetime.now(timezone.utc) + timedelta(hours=8)},
                            secret, algorithm='HS256')
         return {'access_token': token, 'token_type': 'bearer', 'username': row['username']}
@@ -241,13 +287,16 @@ def create_app(dsn=None, secret=None, release=None, instance=None):
     def cached(request, records, single=False):
 
         encoded = json.dumps(records, ensure_ascii=False, sort_keys=True)
+
         etag = '"' + hashlib.sha256(encoded.encode()).hexdigest() + '"'
         if single:
+
             etag = '"' + str(records[0]['version']) + '"'
         latest = max((r['updated_at'] for r in records), default='1970-01-01T00:00:00+00:00')
         modified = datetime.fromisoformat(latest).replace(microsecond=0)
         hdr = {'ETag': etag, 'Last-Modified': format_datetime(modified, usegmt=True),
                'Cache-Control': 'private, no-cache', 'Vary': 'Authorization'}
+
         match = request.headers.get('if-none-match')
         unchanged = match is not None and any(t.strip().removeprefix('W/') in (etag, '*') for t in match.split(','))
 
@@ -262,21 +311,27 @@ def create_app(dsn=None, secret=None, release=None, instance=None):
 
     @app.get('/api/v1/expenses', responses={304: {'description': 'Кэш актуален, тело отсутствует'}})
     def listing(request: Request, include_deleted: bool = False, user=Depends(current_user)):
+
         with db.connect() as conn:
+
             rows = conn.execute('SELECT * FROM expenses WHERE owner=%s ORDER BY date DESC,id', (user['username'],)).fetchall()
         records = [expense(r) for r in rows if include_deleted or not r['deleted']]
         return cached(request, records)
 
     def owned(conn, record_id, user):
+
         row = conn.execute('SELECT * FROM expenses WHERE id=%s FOR UPDATE', (str(record_id),)).fetchone()
+
         if row is None or row['owner'] != user['username']:
             raise HTTPException(404, 'Расход не найден')
         return row
 
     @app.get('/api/v1/expenses/{record_id}', responses={304: {'description': 'Кэш актуален, тело отсутствует'}})
     def get_one(record_id: UUID, request: Request, user=Depends(current_user)):
+
         with db.connect() as conn:
             row = owned(conn, record_id, user)
+
         if row['deleted']:
             raise HTTPException(404, 'Расход удалён')
         return cached(request, [expense(row)], single=True)
@@ -286,8 +341,10 @@ def create_app(dsn=None, secret=None, release=None, instance=None):
             raise HTTPException(400, 'Укажите Idempotency-Key длиной до 128 символов')
 
         conn.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s,0))', (user['username'] + ':' + key,))
+
         row = conn.execute('SELECT * FROM operations WHERE owner=%s AND key=%s', (user['username'], key)).fetchone()
         if row:
+
             if row['fingerprint'] != fingerprint:
                 raise HTTPException(409, 'Этот Idempotency-Key уже использован с другим запросом')
             return Response(status_code=204) if row['status'] == 204 else JSONResponse(json.loads(row['response']), status_code=row['status'])
@@ -295,25 +352,32 @@ def create_app(dsn=None, secret=None, release=None, instance=None):
     def receipt(conn, key, fingerprint, user, status, result):
 
         record_id = result['id'] if result else fingerprint.split(':')[1]
+
         conn.execute('SELECT pg_notify(%s,%s)', ('expenses_changed', json.dumps({
             'type': 'expense.changed', 'event_id': str(uuid4()), 'owner': user['username'],
             'record_id': record_id, 'action': fingerprint.split(':')[0],
             'instance': instance, 'version': release['version']})))
+
         conn.execute('INSERT INTO operations VALUES (%s,%s,%s,%s,%s)',
                      (user['username'], key, fingerprint, status, json.dumps(result)))
         return Response(status_code=204) if status == 204 else JSONResponse(result, status_code=status)
 
     @app.post('/api/v1/expenses', status_code=201)
     def create(body: ExpenseCreate, user=Depends(writer), idempotency_key: str = Header(default='')):
+
         values = body.model_dump(mode='json')
+
         fp = 'POST:' + json.dumps(values, sort_keys=True)
+
         with db.connect() as conn:
             old = replay(conn, idempotency_key, fp, user)
             if old is not None:
                 return old
+
             conn.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s,1))', (values['id'],))
             if conn.execute('SELECT 1 FROM expenses WHERE id=%s', (values['id'],)).fetchone():
                 raise HTTPException(409, 'UUID уже существует')
+
             conn.execute('INSERT INTO expenses VALUES (%s,%s,%s,%s,%s,%s,%s,%s,0)',
                 (values['id'], user['username'], values['date'], values['category'],
                  values['amount_minor'], values['comment'], 1, now()))
@@ -329,19 +393,25 @@ def create_app(dsn=None, secret=None, release=None, instance=None):
     @app.patch('/api/v1/expenses/{record_id}')
     def update(record_id: UUID, body: ExpensePatch, user=Depends(writer),
                idempotency_key: str = Header(default=''), if_match: str = Header(default='')):
+
         changes = body.model_dump(mode='json', exclude_unset=True)
         if not changes or any(v is None for v in changes.values()):
             raise HTTPException(400, 'Передайте непустой набор полей без null')
+
         fp = f'PATCH:{record_id}:{if_match}:' + json.dumps(changes, sort_keys=True)
+
         with db.connect() as conn:
             old = replay(conn, idempotency_key, fp, user)
             if old is not None:
                 return old
             row = owned(conn, record_id, user)
             check_version(row, if_match)
+
             if row['deleted']:
                 raise HTTPException(409, {'message': 'Расход удалён на сервере', 'server': expense(row)})
+
             merged = dict(row) | changes
+
             conn.execute('UPDATE expenses SET date=%s,category=%s,amount_minor=%s,comment=%s,version=version+1,updated_at=%s WHERE id=%s',
                          (merged['date'], merged['category'], merged['amount_minor'], merged['comment'], now(), str(record_id)))
             return receipt(conn, idempotency_key, fp, user, 200, expense(owned(conn, record_id, user)))
@@ -349,20 +419,25 @@ def create_app(dsn=None, secret=None, release=None, instance=None):
     @app.delete('/api/v1/expenses/{record_id}', status_code=204)
     def delete(record_id: UUID, user=Depends(writer), idempotency_key: str = Header(default=''),
                if_match: str = Header(default='')):
+
         fp = f'DELETE:{record_id}:{if_match}'
+
         with db.connect() as conn:
             old = replay(conn, idempotency_key, fp, user)
             if old is not None:
                 return old
             row = owned(conn, record_id, user)
             check_version(row, if_match)
+
             conn.execute('UPDATE expenses SET deleted=1,version=version+1,updated_at=%s WHERE id=%s', (now(), str(record_id)))
             return receipt(conn, idempotency_key, fp, user, 204, None)
 
     @app.get('/ready')
     def readiness():
         try:
+
             with db.connect() as conn:
+
                 conn.execute('SELECT 1')
             if not hub.ready.is_set():
                 raise RuntimeError('listener unavailable')
@@ -375,9 +450,12 @@ def create_app(dsn=None, secret=None, release=None, instance=None):
         return {'instance': instance, **release}
 
     if 'summary' in release.get('features', []):
+
         @app.get('/api/v1/summary')
         def summary(user=Depends(current_user)):
+
             with db.connect() as conn:
+
                 row = conn.execute('SELECT count(*) AS count, COALESCE(sum(amount_minor),0) AS total_minor FROM expenses WHERE owner=%s AND deleted=0', (user['username'],)).fetchone()
             return {'count': row['count'], 'total_minor': int(row['total_minor'])}
 
@@ -388,17 +466,20 @@ def create_app(dsn=None, secret=None, release=None, instance=None):
         try:
             auth = websocket.headers.get('authorization', '')
             if not auth:
+
                 await websocket.accept()
                 accepted = True
                 frame = await asyncio.wait_for(websocket.receive_text(), timeout=8)
                 if len(frame) > 4096:
                     raise ValueError()
                 message = json.loads(frame)
+
                 if message.get('type') != 'authenticate' or not isinstance(message.get('token'), str):
                     raise ValueError()
                 auth = 'Bearer ' + message['token']
             if not auth.startswith('Bearer '):
                 raise ValueError()
+
             claims = jwt.decode(auth[7:], secret, algorithms=['HS256'], options={'require': ['sub', 'exp']})
 
             await asyncio.to_thread(current_user, HTTPAuthorizationCredentials(scheme='Bearer', credentials=auth[7:]))
@@ -409,11 +490,14 @@ def create_app(dsn=None, secret=None, release=None, instance=None):
                 await websocket.close(code=1008)
             return
         if not accepted:
+
             await websocket.accept()
         queue = asyncio.Queue(maxsize=64)
         hub.clients[queue] = claims['sub']
         try:
+
             await websocket.send_json({'type': 'connected', 'instance': instance, 'version': release['version']})
+
             while True:
                 if datetime.now(timezone.utc).timestamp() >= claims['exp']:
                     await websocket.close(code=1008, reason='token expired')
@@ -422,9 +506,11 @@ def create_app(dsn=None, secret=None, release=None, instance=None):
                     event = await asyncio.wait_for(queue.get(), timeout=15)
                 except asyncio.TimeoutError:
                     event = {'type': 'heartbeat'}
+
                 await websocket.send_json(event)
         except (WebSocketDisconnect, RuntimeError, OSError):
             pass
+
         finally:
             hub.clients.pop(queue, None)
 
@@ -434,6 +520,7 @@ def create_app(dsn=None, secret=None, release=None, instance=None):
 
             for path in schema['paths'].values():
                 for operation in path.values():
+
                     if isinstance(operation, dict):
                         operation.get('responses', {}).pop('422', None)
             app.openapi_schema = schema
@@ -455,6 +542,7 @@ from contextlib import asynccontextmanager, suppress
 import psycopg
 
 class PushHub:
+
     def __init__(self, dsn):
         self.dsn = dsn
         self.clients = {}
@@ -462,23 +550,31 @@ class PushHub:
 
     def deliver(self, event):
         for queue, owner in list(self.clients.items()):
+
             if event.get('owner') not in (None, owner):
                 continue
+
             public = {k: v for k, v in event.items() if k != 'owner'}
+
             if queue.full():
 
                 while not queue.empty():
+
                     queue.get_nowait()
                 public = {'type': 'resync'}
+
             queue.put_nowait(public)
 
     async def listen(self):
+
         while True:
             try:
+
                 async with await psycopg.AsyncConnection.connect(self.dsn, autocommit=True,
                         connect_timeout=3, keepalives=1, keepalives_idle=10,
                         keepalives_interval=3, keepalives_count=3) as conn:
                     await conn.execute('LISTEN expenses_changed')
+
                     self.ready.set()
 
                     self.deliver({'type': 'resync'})
@@ -490,17 +586,22 @@ class PushHub:
             except asyncio.CancelledError:
                 raise
             except psycopg.Error:
+
                 self.ready.clear()
                 logging.exception('LISTEN временно недоступен; повтор через 2 секунды')
+
                 await asyncio.sleep(2)
 
     @asynccontextmanager
     async def lifespan(self, app):
+
         task = asyncio.create_task(self.listen())
         try:
             await asyncio.wait_for(self.ready.wait(), timeout=10)
             yield
+
         finally:
+
             task.cancel()
             with suppress(asyncio.CancelledError):
                 await task
@@ -524,6 +625,7 @@ app = create_app()
 <!doctype html>
 <html lang="ru">
 <head>
+
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Учёт расходов — REST API</title>
   <style>
@@ -537,24 +639,38 @@ app = create_app()
 <body>
   <h1>Учёт расходов</h1>
   <p>Тестовая страница REST API v1. Все ресурсы загружаются с этого сервера. <a href="/docs">Swagger UI</a></p>
+
   <section>
     <h2>Вход</h2>
+
     <form id="login"><label>Пользователь<input id="username" value="demo" required autocomplete="username"></label>
+
       <label>Пароль<input id="password" type="password" required autocomplete="current-password"></label>
+
       <button>Войти</button><button type="button" id="logout">Выйти</button></form>
   </section>
+
   <section>
     <h2>Создать или изменить расход</h2>
+
     <form id="expense"><input id="recordId" type="hidden"><input id="version" type="hidden">
+
       <label>Дата<input id="date" type="date" required></label>
+
       <label>Категория<input id="category" maxlength="80" required></label>
+
       <label>Сумма, руб.<input id="amount" type="text" inputmode="decimal" placeholder="125.50" required></label>
+
       <label>Комментарий<textarea id="comment" maxlength="2000"></textarea></label>
+
       <button>Сохранить</button><button type="button" id="reset">Очистить форму</button>
     </form>
   </section>
+
   <section><h2>Расходы</h2><button id="refresh">Обновить список</button><ul id="list"></ul></section>
+
   <section><h2>Последний HTTP-ответ</h2><pre id="status" role="status">Войдите в систему.</pre></section>
+
   <script src="/browser.js"></script>
 </body></html>
 ```
@@ -567,7 +683,9 @@ app = create_app()
 (function () {
   'use strict';
   var token = '', busy = false;
+
   function el(id) { return document.getElementById(id); }
+
   function uuid() {
     var bytes = new Uint8Array(16);
     window.crypto.getRandomValues(bytes);
@@ -576,35 +694,51 @@ app = create_app()
     for (var i = 0; i < 16; i++) hex.push(('0' + bytes[i].toString(16)).slice(-2));
     return hex.slice(0, 4).join('') + '-' + hex.slice(4, 6).join('') + '-' + hex.slice(6, 8).join('') + '-' + hex.slice(8, 10).join('') + '-' + hex.slice(10).join('');
   }
+
   function request(method, path, data, version, callback) {
+
     if (busy) { el('status').textContent = 'Дождитесь завершения запроса'; return; }
     busy = true;
+
     var xhr = new XMLHttpRequest();
     xhr.open(method, '/api/v1/' + path); xhr.timeout = 10000;
     xhr.setRequestHeader('Accept', 'application/json');
+
     if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
     if (data) xhr.setRequestHeader('Content-Type', 'application/json');
     if (method !== 'GET') xhr.setRequestHeader('Idempotency-Key', uuid());
     if (version) xhr.setRequestHeader('If-Match', '"' + version + '"');
+
     xhr.onload = function () {
       busy = false;
       var body = null;
+
       try { body = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (e) {                                       }
+
       el('status').textContent = method + ' ' + path + '\nHTTP ' + xhr.status + '\n' + xhr.getAllResponseHeaders() + '\n' + xhr.responseText;
       if (xhr.status >= 200 && xhr.status < 300 && callback) callback(body);
     };
+
     xhr.onerror = xhr.ontimeout = function () { busy = false; el('status').textContent = 'Нет связи, ошибка TLS или тайм-аут. Обновите список перед повтором операции.'; };
+
     xhr.send(data ? JSON.stringify(data) : null);
   }
+
   function clear() { el('expense').reset(); el('recordId').value = ''; el('version').value = ''; el('date').value = new Date().toISOString().slice(0, 10); }
+
   function refresh() {
     request('GET', 'expenses', null, null, function (rows) {
+
       el('list').textContent = '';
       rows.forEach(function (row) {
+
         var li = document.createElement('li');
+
         var text = document.createElement('div');
+
         text.textContent = row.date + ' · ' + row.category + ' · ' + (row.amount_minor / 100).toFixed(2) + ' руб. · ' + row.comment;
         li.appendChild(text);
+
         var edit = document.createElement('button'); edit.textContent = 'Изменить';
         edit.onclick = function () {
           el('recordId').value = row.id; el('version').value = row.version;
@@ -612,6 +746,7 @@ app = create_app()
           el('amount').value = (row.amount_minor / 100).toFixed(2); el('comment').value = row.comment;
           el('expense').scrollIntoView();
         };
+
         var remove = document.createElement('button'); remove.textContent = 'Удалить';
         remove.onclick = function () { if (window.confirm('Удалить расход?')) request('DELETE', 'expenses/' + row.id, null, row.version, refresh); };
         li.appendChild(edit); li.appendChild(remove); el('list').appendChild(li);
@@ -619,14 +754,17 @@ app = create_app()
     });
   }
   el('login').onsubmit = function (event) {
+
     event.preventDefault();
     request('POST', 'auth/login', {username: el('username').value, password: el('password').value}, null, function (body) {
       token = body.access_token; el('password').value = ''; refresh();
     });
   };
   el('expense').onsubmit = function (event) {
+
     event.preventDefault();
     var value = el('amount').value.trim().replace(',', '.');
+
     if (!/^\d+(\.\d{1,2})?$/.test(value)) { el('status').textContent = 'Введите положительную сумму с точностью до копеек'; return; }
     var parts = value.split('.');
     var data = {date: el('date').value, category: el('category').value,
@@ -635,6 +773,7 @@ app = create_app()
     if (!id) data.id = uuid();
     request(id ? 'PATCH' : 'POST', id ? 'expenses/' + id : 'expenses', data, el('version').value, function () { clear(); refresh(); });
   };
+
   el('logout').onclick = function () { token = ''; el('list').textContent = ''; clear(); el('status').textContent = 'Вы вышли'; };
   el('refresh').onclick = refresh; el('reset').onclick = clear; clear();
 }());
@@ -655,30 +794,45 @@ app = create_app()
 #include <QSslConfiguration>
 
 class PushService : public QObject {
+
     Q_OBJECT
+
 public:
     explicit PushService(QObject *parent = nullptr);
     ~PushService() override;
+
     void start(const QString &url, const QString &token, const QString &certificate);
+
     void stop();
+
 signals:
     void connected();
     void eventReceived(QJsonObject event);
     void statusChanged(QString status);
+
 private slots:
+
     void receive(QString message);
+
     void schedule();
+
 private:
     QQmlEngine *engine;
     QObject *socket = nullptr;
     QSslConfiguration initialSsl;
     QTimer retry, deadline, watchdog;
+
     QElapsedTimer lastMessage;
+
     QSet<QString> seen;
+
     QString baseUrl, authToken, certificatePath;
     bool wanted = false;
+
     int backoff = 1000;
+
     void open();
+
     void disposeSocket();
 };
 ```
@@ -720,8 +874,11 @@ PushService::PushService(QObject *parent) : QObject(parent), engine(sharedEngine
     initialSsl(QSslConfiguration::defaultConfiguration()) {
     retry.setSingleShot(true); deadline.setSingleShot(true);
     watchdog.setInterval(5000);
+
     connect(&retry, &QTimer::timeout, this, &PushService::open);
+
     connect(&deadline, &QTimer::timeout, this, [this]() { disposeSocket(); schedule(); });
+
     connect(&watchdog, &QTimer::timeout, this, [this]() {
         if (lastMessage.isValid() && lastMessage.elapsed() > 35000) { disposeSocket(); schedule(); }
     });
@@ -731,46 +888,57 @@ PushService::~PushService() {
     wanted = false; retry.stop(); deadline.stop(); watchdog.stop();
     disposeSocket();
 }
+
 void PushService::disposeSocket() {
     if (socket) {
+
         socket->disconnect(this);
         socket->setProperty("active", false);
         socket = nullptr;
     }
 }
+
 void PushService::stop() {
     wanted = false; retry.stop(); deadline.stop(); watchdog.stop();
     disposeSocket(); seen.clear();
     emit statusChanged("Push отключён");
 }
+
 void PushService::start(const QString &url, const QString &token, const QString &certificate) {
+
     if (wanted && baseUrl == url && authToken == token && certificatePath == certificate) return;
     stop(); baseUrl = url; authToken = token; certificatePath = certificate;
     wanted = true; backoff = 1000;
 
     retry.start(50);
 }
+
 void PushService::schedule() {
     deadline.stop(); watchdog.stop();
     if (!wanted || retry.isActive()) return;
     emit statusChanged(QString("Нет push-соединения. Повтор через %1 с").arg(backoff / 1000));
     retry.start(backoff); backoff = qMin(backoff * 2, 30000);
 }
+
 void PushService::open() {
     if (!wanted) return;
     disposeSocket();
     auto ssl = initialSsl;
     auto certs = ssl.caCertificates(); certs.append(QSslCertificate::fromPath(certificatePath));
+
     ssl.setCaCertificates(certs);
 
     QSslConfiguration::setDefaultConfiguration(ssl);
+
     QString error;
     socket = sharedTransport(engine, error);
     if (!socket) {
         emit statusChanged("QtWebSockets недоступен: " + error);
         schedule(); return;
     }
+
     connect(socket, SIGNAL(textReceived(QString)), this, SLOT(receive(QString)));
+
     connect(socket, SIGNAL(lost()), this, SLOT(schedule()));
     QUrl url(baseUrl); url.setScheme("wss"); url.setPath("/api/v1/events");
     socket->setProperty("url", url.toString());
@@ -778,8 +946,10 @@ void PushService::open() {
     emit statusChanged("Подключение push…");
     deadline.start(10000); socket->setProperty("active", true);
 }
+
 void PushService::receive(QString message) {
     lastMessage.restart();
+
     const auto doc = QJsonDocument::fromJson(message.toUtf8());
     if (!doc.isObject()) return;
     const auto event = doc.object();
@@ -808,16 +978,23 @@ import QtQml 2.2
 import QtWebSockets 1.0
 
 QtObject {
+
     id: transport
+
     property string url
+
     property string token
     property bool active: false
+
     signal textReceived(string text)
+
     signal lost()
     property WebSocket connection: WebSocket {
         url: transport.url
         active: transport.active
+
         onStatusChanged: {
+
             if (status === WebSocket.Open) sendTextMessage(JSON.stringify({type: "authenticate", token: transport.token}))
             else if ((status === WebSocket.Error || status === WebSocket.Closed) && transport.active) transport.lost()
         }
@@ -835,27 +1012,35 @@ import QtQml 2.2
 import Nemo.Notifications 1.0
 
 Notification {
+
     id: notification
+
     property var controller: null
     property var seen: []
     property int publishedCount: 0
     property string lastEventId: ""
     appName: "Расходы ЛР3"
     appIcon: "com.example.expenseslab3"
+
     expireTimeout: -1
+
     isTransient: false
 
     function notifyExpense(event) {
         var titles = {POST: "Расход добавлен", PATCH: "Расход изменён", DELETE: "Расход удалён"}
         if (!event || event.type !== "expense.changed" || !titles[event.action]) return
+
         if (event.event_id && seen.indexOf(event.event_id) !== -1) return
         summary = titles[event.action]
         body = "Изменения получены с сервера. Список расходов обновляется."
+
         previewSummary = summary
+
         previewBody = body
         timestamp = new Date()
 
         publish()
+
         if (replacesId) {
             lastEventId = event.event_id || ""
             if (lastEventId) {
@@ -1108,6 +1293,7 @@ def main():
         def watch():
             while not stop.is_set():
                 try:
+
                     with connect('wss://127.0.0.1:9443/api/v1/events', ssl=TLS, additional_headers=h,
                                  open_timeout=5, close_timeout=2) as ws:
                         connected = json.loads(ws.recv(timeout=6))
@@ -1146,6 +1332,7 @@ def main():
             create()
             service('start', initial_node)
             port = 9101 if initial_node == 'blue-1' else 9102
+
             def ready():
                 try:
                     return c.get(f'http://127.0.0.1:{port}/ready').status_code == 200
@@ -1169,6 +1356,7 @@ def main():
             service('stop', 'green-1', 'green-2')
             wait(lambda: connections[-1]['instance'].startswith('blue'), 'WS не восстановился после отката')
             create()
+
         finally:
 
             switch('blue')
@@ -1327,19 +1515,27 @@ lab_sdk=${LAB_SDK:-"$HOME/AuroraOS"}
 #include "expensecontroller.h"
 
 int main(int argc, char *argv[]) {
+
     QScopedPointer<QGuiApplication> app(Aurora::Application::application(argc, argv));
     app->setOrganizationName("com.example");
     app->setApplicationName("expenseslab3");
     try {
+
         const QString data = Aurora::Application::filesDir().absolutePath();
         QDir().mkpath(data);
         ExpenseController controller(data);
+
         QScopedPointer<QQuickView> view(Aurora::Application::createView());
+
         view->rootContext()->setContextProperty("expensesController", &controller);
+
         view->setSource(Aurora::Application::pathTo("qml/com.example.expenseslab3.qml"));
         if (view->status() == QQuickView::Error) return 1;
+
         view->show();
+
         return app->exec();
+
     } catch (const std::exception &e) {
         qCritical() << "Не удалось открыть локальную базу:" << e.what();
         return 1;
@@ -1359,23 +1555,34 @@ int main(int argc, char *argv[]) {
 #include <functional>
 
 struct ApiResult {
+
     int status = 0;
+
     QJsonDocument json;
+
     QString error;
+
     QByteArray etag;
+
     QByteArray modified;
     QString backendId, appVersion;
+
     bool ok() const { return status >= 200 && status < 300 && error.isEmpty(); }
 };
 
 class ApiClient : public QObject {
+
     Q_OBJECT
+
 public:
     explicit ApiClient(QObject *parent = nullptr);
+
     QString baseUrl, token, certificatePath;
+
     void request(const QByteArray &method, const QString &path, const QJsonObject &body,
                  const QByteArray &key, int version, const QByteArray &etag,
                  std::function<void(ApiResult)> done, int retries = 1);
+
 private:
     QNetworkAccessManager manager;
 };
@@ -1407,14 +1614,19 @@ void ApiClient::request(const QByteArray &method, const QString &path, const QJs
     req.setRawHeader("User-Agent", "AuroraExpenses/2.0 Qt/5.6");
 
     req.setRawHeader("Connection", "close");
+
     if (!token.isEmpty()) req.setRawHeader("Authorization", "Bearer " + token.toUtf8());
+
     if (!key.isEmpty()) req.setRawHeader("Idempotency-Key", key);
+
     if (version > 0) req.setRawHeader("If-Match", "\"" + QByteArray::number(version) + "\"");
+
     if (!etag.isEmpty()) req.setRawHeader("If-None-Match", etag);
 
     auto ssl = QSslConfiguration::defaultConfiguration();
     auto trusted = ssl.caCertificates();
     trusted.append(QSslCertificate::fromPath(certificatePath));
+
     ssl.setCaCertificates(trusted);
     req.setSslConfiguration(ssl);
     QByteArray bytes;
@@ -1426,27 +1638,35 @@ void ApiClient::request(const QByteArray &method, const QString &path, const QJs
     auto *buffer = new QBuffer(&manager);
     buffer->setData(bytes);
     buffer->open(QIODevice::ReadOnly);
+
     auto *reply = manager.sendCustomRequest(req, method, buffer);
     buffer->setParent(reply);
 
     auto *timer = new QTimer(reply);
     timer->setSingleShot(true);
+
     connect(timer, &QTimer::timeout, reply, [reply]() {
         reply->setProperty("timedOut", true);
+
         reply->abort();
     });
     timer->start(10000);
+
     connect(reply, &QNetworkReply::finished, this, [this, reply, timer, done, method, path, body, key, version, etag, retries]() {
         timer->stop();
         ApiResult result;
+
         result.status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+
         result.etag = reply->rawHeader("ETag");
         result.modified = reply->rawHeader("Last-Modified");
         result.backendId = QString::fromUtf8(reply->rawHeader("X-Backend-ID"));
         result.appVersion = QString::fromUtf8(reply->rawHeader("X-App-Version"));
         const auto bytes = reply->readAll();
         QJsonParseError parse;
+
         result.json = QJsonDocument::fromJson(bytes, &parse);
+
         if (reply->property("timedOut").toBool()) result.error = "Превышено время ожидания (10 с)";
         else if (result.status == 0) result.error = reply->errorString();
         else if (result.status >= 400) {
@@ -1455,10 +1675,13 @@ void ApiClient::request(const QByteArray &method, const QString &path, const QJs
         } else if (result.status != 204 && result.status != 304 && parse.error != QJsonParseError::NoError) {
             result.error = "Сервер вернул некорректный JSON";
         }
+
         reply->deleteLater();
+
         if (result.status == 0 && method == "GET" && retries > 0) {
 
             manager.clearAccessCache();
+
             QTimer::singleShot(250, this, [this, method, path, body, key, version, etag, done, retries]() {
                 request(method, path, body, key, version, etag, done, retries - 1);
             });
@@ -1481,24 +1704,41 @@ void ApiClient::request(const QByteArray &method, const QString &path, const QJs
 #include <QString>
 
 class LocalStore {
+
 public:
+
     explicit LocalStore(const QString &path);
     ~LocalStore();
+
     QString scope;
+
     QJsonArray items() const;
+
     QJsonObject item(const QString &id) const;
+
     QJsonObject operation(const QString &id = QString()) const;
+
     int pending() const;
+
     void enqueue(QJsonObject item, const QString &kind);
+
     void attempted(const QString &id);
+
     void acknowledge(const QString &id, const QJsonObject &server);
+
     void conflict(const QString &id, const QJsonObject &server);
+
     void resolve(const QString &id, bool keepLocal);
+
     void snapshot(const QJsonArray &rows, const QByteArray &etag);
+
     QByteArray etag() const;
+
 private:
     QSqlDatabase db;
+
     QString connectionName;
+
     void putItem(const QJsonObject &item);
 };
 ```
@@ -1517,24 +1757,34 @@ SQLite-кэш, транзакции, offline-операции и разреше�
 #include <stdexcept>
 
 namespace {
+
 QByteArray encode(const QJsonObject &o) { return QJsonDocument(o).toJson(QJsonDocument::Compact); }
+
 QJsonObject decode(const QVariant &v) { return QJsonDocument::fromJson(v.toByteArray()).object(); }
+
 QString uuid() { return QUuid::createUuid().toString().remove('{').remove('}'); }
+
 void check(bool ok, const QSqlQuery &q) {
     if (!ok) throw std::runtime_error(q.lastError().text().toStdString());
 }
 
 class Transaction {
+
     QSqlDatabase &db;
+
     bool committed = false;
+
 public:
+
     explicit Transaction(QSqlDatabase &d) : db(d) {
         if (!db.transaction()) throw std::runtime_error(db.lastError().text().toStdString());
     }
+
     void commit() {
         if (!db.commit()) throw std::runtime_error(db.lastError().text().toStdString());
         committed = true;
     }
+
     ~Transaction() { if (!committed) db.rollback(); }
 };
 }
@@ -1544,53 +1794,79 @@ LocalStore::LocalStore(const QString &path) : connectionName("expenses-" + uuid(
     db.setDatabaseName(path);
     if (!db.open()) throw std::runtime_error(db.lastError().text().toStdString());
     QSqlQuery q(db);
+
     check(q.exec("CREATE TABLE IF NOT EXISTS items(scope TEXT,id TEXT,json BLOB,PRIMARY KEY(scope,id))"), q);
+
     check(q.exec("CREATE TABLE IF NOT EXISTS outbox(scope TEXT,id TEXT,json BLOB,PRIMARY KEY(scope,id))"), q);
+
     check(q.exec("CREATE TABLE IF NOT EXISTS validators(scope TEXT PRIMARY KEY,etag BLOB)"), q);
 }
+
 LocalStore::~LocalStore() {
     db.close(); db = QSqlDatabase(); QSqlDatabase::removeDatabase(connectionName);
 }
+
 QJsonArray LocalStore::items() const {
+
     QSqlQuery q(db); q.prepare("SELECT json FROM items WHERE scope=? ORDER BY id"); q.addBindValue(scope); check(q.exec(), q);
     QJsonArray result;
+
     while (q.next()) {
         auto row = decode(q.value(0));
         if (row.value("deleted").toBool()) continue;
         auto op = operation(row.value("id").toString());
+
         row["pending"] = !op.isEmpty();
+
         row["conflict"] = op.contains("server");
         result.append(row);
     }
     return result;
 }
+
 QJsonObject LocalStore::item(const QString &id) const {
+
     QSqlQuery q(db); q.prepare("SELECT json FROM items WHERE scope=? AND id=?"); q.addBindValue(scope); q.addBindValue(id); check(q.exec(), q);
+
     return q.next() ? decode(q.value(0)) : QJsonObject();
 }
+
 QJsonObject LocalStore::operation(const QString &id) const {
     QSqlQuery q(db);
+
     q.prepare(id.isEmpty() ? "SELECT json FROM outbox WHERE scope=? ORDER BY rowid LIMIT 1" : "SELECT json FROM outbox WHERE scope=? AND id=?");
+
     q.addBindValue(scope); if (!id.isEmpty()) q.addBindValue(id); check(q.exec(), q);
+
     return q.next() ? decode(q.value(0)) : QJsonObject();
 }
+
 int LocalStore::pending() const {
+
     QSqlQuery q(db); q.prepare("SELECT count(*) FROM outbox WHERE scope=?"); q.addBindValue(scope); check(q.exec(), q); q.next(); return q.value(0).toInt();
 }
+
 void LocalStore::putItem(const QJsonObject &row) {
+
     QSqlQuery q(db); q.prepare("INSERT OR REPLACE INTO items VALUES (?,?,?)");
+
     q.addBindValue(scope); q.addBindValue(row.value("id").toString()); q.addBindValue(encode(row)); check(q.exec(), q);
 }
+
 void LocalStore::enqueue(QJsonObject row, const QString &kind) {
     const auto id = row.value("id").toString();
     auto op = operation(id);
+
     if (op.value("attempted").toBool() || op.contains("server"))
         throw std::runtime_error("Сначала синхронизируйте ранее отправленную операцию или разрешите конфликт");
+
     Transaction tx(db);
     QSqlQuery q(db);
 
     if (kind == "DELETE" && op.value("kind").toString() == "POST") {
+
         q.prepare("DELETE FROM items WHERE scope=? AND id=?"); q.addBindValue(scope); q.addBindValue(id); check(q.exec(), q);
+
         q.prepare("DELETE FROM outbox WHERE scope=? AND id=?"); q.addBindValue(scope); q.addBindValue(id); check(q.exec(), q);
     } else {
         row["deleted"] = kind == "DELETE";
@@ -1599,29 +1875,44 @@ void LocalStore::enqueue(QJsonObject row, const QString &kind) {
             op["id"] = id; op["key"] = uuid(); op["kind"] = kind; op["version"] = row.value("version");
         } else if (kind == "DELETE") op["kind"] = kind;
         op["payload"] = row;
+
         q.prepare("INSERT OR REPLACE INTO outbox VALUES (?,?,?)"); q.addBindValue(scope); q.addBindValue(id); q.addBindValue(encode(op)); check(q.exec(), q);
     }
+
     tx.commit();
 }
+
 void LocalStore::attempted(const QString &id) {
     auto op = operation(id); op["attempted"] = true;
+
     QSqlQuery q(db); q.prepare("UPDATE outbox SET json=? WHERE scope=? AND id=?");
+
     q.addBindValue(encode(op)); q.addBindValue(scope); q.addBindValue(id); check(q.exec(), q);
 }
+
 void LocalStore::acknowledge(const QString &id, const QJsonObject &server) {
+
     Transaction tx(db);
+
     QSqlQuery q(db); q.prepare("DELETE FROM outbox WHERE scope=? AND id=?"); q.addBindValue(scope); q.addBindValue(id); check(q.exec(), q);
+
     q.prepare("DELETE FROM validators WHERE scope=?"); q.addBindValue(scope); check(q.exec(), q);
     if (server.isEmpty()) {
+
         q.prepare("DELETE FROM items WHERE scope=? AND id=?"); q.addBindValue(scope); q.addBindValue(id); check(q.exec(), q);
     } else putItem(server);
+
     tx.commit();
 }
+
 void LocalStore::conflict(const QString &id, const QJsonObject &server) {
     auto op = operation(id); op["server"] = server;
+
     QSqlQuery q(db); q.prepare("UPDATE outbox SET json=? WHERE scope=? AND id=?");
+
     q.addBindValue(encode(op)); q.addBindValue(scope); q.addBindValue(id); check(q.exec(), q);
 }
+
 void LocalStore::resolve(const QString &id, bool keepLocal) {
     auto op = operation(id);
     if (!op.contains("server")) return;
@@ -1630,11 +1921,13 @@ void LocalStore::resolve(const QString &id, bool keepLocal) {
 
     Transaction tx(db);
     QSqlQuery q(db);
+
     q.prepare("DELETE FROM outbox WHERE scope=? AND id=?"); q.addBindValue(scope); q.addBindValue(id); check(q.exec(), q);
     putItem(server);
     if (keepLocal && !(server.value("deleted").toBool() && op.value("kind").toString() == "DELETE")) {
         QString kind = op.value("kind").toString() == "DELETE" ? "DELETE" : "PATCH";
         local["version"] = server.value("version");
+
         if (server.value("deleted").toBool()) {
             kind = "POST"; local["id"] = uuid(); local["version"] = 0;
         }
@@ -1642,23 +1935,35 @@ void LocalStore::resolve(const QString &id, bool keepLocal) {
         putItem(local);
         const QJsonObject replacement{{"id", local.value("id")}, {"key", uuid()}, {"kind", kind},
                                       {"version", local.value("version")}, {"payload", local}};
+
         q.prepare("INSERT INTO outbox VALUES (?,?,?)"); q.addBindValue(scope);
+
         q.addBindValue(local.value("id").toString()); q.addBindValue(encode(replacement)); check(q.exec(), q);
     }
+
     q.prepare("DELETE FROM validators WHERE scope=?"); q.addBindValue(scope); check(q.exec(), q);
+
     tx.commit();
 }
+
 void LocalStore::snapshot(const QJsonArray &rows, const QByteArray &value) {
 
     if (pending()) throw std::runtime_error("Нельзя заменить кэш при непустой очереди");
+
     Transaction tx(db);
+
     QSqlQuery q(db); q.prepare("DELETE FROM items WHERE scope=?"); q.addBindValue(scope); check(q.exec(), q);
     for (const auto &v : rows) putItem(v.toObject());
+
     q.prepare("INSERT OR REPLACE INTO validators VALUES (?,?)"); q.addBindValue(scope); q.addBindValue(value); check(q.exec(), q);
+
     tx.commit();
 }
+
 QByteArray LocalStore::etag() const {
+
     QSqlQuery q(db); q.prepare("SELECT etag FROM validators WHERE scope=?"); q.addBindValue(scope); check(q.exec(), q);
+
     return q.next() ? q.value(0).toByteArray() : QByteArray();
 }
 ```
@@ -1677,21 +1982,37 @@ QByteArray LocalStore::etag() const {
 #include <QVariantList>
 
 class ExpenseController : public QObject {
+
     Q_OBJECT
+
     Q_PROPERTY(QVariantList expenses READ expenses NOTIFY changed)
+
     Q_PROPERTY(int pendingCount READ pendingCount NOTIFY changed)
+
     Q_PROPERTY(QString status READ status NOTIFY changed)
+
     Q_PROPERTY(bool busy READ busy NOTIFY changed)
+
     Q_PROPERTY(bool authenticated READ authenticated NOTIFY changed)
+
     Q_PROPERTY(bool offline READ offline WRITE setOffline NOTIFY changed)
+
     Q_PROPERTY(QString serverUrl READ serverUrl NOTIFY changed)
+
     Q_PROPERTY(QString username READ username NOTIFY changed)
+
     Q_PROPERTY(QString certificatePath READ certificatePath NOTIFY changed)
+
     Q_PROPERTY(QVariantMap conflictInfo READ conflictInfo NOTIFY changed)
+
     Q_PROPERTY(QString pushStatus READ pushStatus NOTIFY changed)
+
     Q_PROPERTY(QString lastPush READ lastPush NOTIFY changed)
+
     Q_PROPERTY(int pushCount READ pushCount NOTIFY changed)
+
     Q_PROPERTY(QString backend READ backend NOTIFY changed)
+
 public:
     explicit ExpenseController(const QString &dataDir, QObject *parent = nullptr);
     ~ExpenseController() override;
@@ -1704,37 +2025,62 @@ public:
     QString serverUrl() const { return api.baseUrl; }
     QString username() const { return account; }
     QString certificatePath() const { return api.certificatePath; }
+
     QVariantMap conflictInfo() const;
     QString pushStatus() const { return pushMessage; }
     QString lastPush() const { return lastEvent; }
     int pushCount() const { return eventCount; }
     QString backend() const { return lastBackend; }
+
     Q_INVOKABLE void login(QString url, QString user, QString password, QString cert);
+
     Q_INVOKABLE void logout();
+
     Q_INVOKABLE void sync();
+
     Q_INVOKABLE bool save(QString id, QString date, QString category, QString amount, QString comment);
+
     Q_INVOKABLE void remove(QString id);
+
     Q_INVOKABLE void resolve(bool keepLocal);
+
     void setOffline(bool value);
+
 signals:
     void changed();
 
     void expenseChanged(QVariantMap event);
+
 private:
+
     ApiClient api;
+
     PushService push;
+
     LocalStore store;
+
     QSettings settings;
+
     QTimer retry;
+
     QString account, message;
+
     bool running = false, offlineMode = false;
+
     bool resyncRequested = false;
+
     int eventCount = 0;
+
     QString pushMessage, lastEvent, lastBackend;
+
     void next();
+
     void failed(const ApiResult &result);
+
     void finish(QString text);
+
     void configureScope();
+
     void configurePush();
 };
 ```
@@ -1754,24 +2100,34 @@ private:
 
 ExpenseController::ExpenseController(const QString &dataDir, QObject *parent)
     : QObject(parent), api(this), push(this), store(dataDir + "/expenses.sqlite") {
+
     api.baseUrl = settings.value("server", "https://10.215.223.25:9443").toString();
+
     api.certificatePath = settings.value("certificate", "/usr/share/com.example.expenseslab3/certificates/server.crt").toString();
+
     account = settings.value("username", "demo").toString();
+
     api.token = settings.value("token").toString();
+
     offlineMode = settings.value("offline", false).toBool();
+
     connect(&push, &PushService::statusChanged, this, [this](QString value) {
+
         pushMessage = value; emit changed();
     });
+
     connect(&push, &PushService::connected, this, [this]() {
 
         if (running) resyncRequested = true; else sync();
     });
+
     connect(&push, &PushService::eventReceived, this, [this](QJsonObject event) {
         if (event.value("type") == "expense.changed") {
             ++eventCount;
             lastEvent = event.value("action").toString() + " · " + event.value("instance").toString();
             emit expenseChanged(event.toVariantMap());
         }
+
         emit changed();
         if (running) resyncRequested = true; else sync();
     });
@@ -1779,8 +2135,10 @@ ExpenseController::ExpenseController(const QString &dataDir, QObject *parent)
     message = "Показаны сохранённые данные. Нажмите «Синхронизировать».";
 
     retry.setInterval(30000);
+
     connect(&retry, &QTimer::timeout, this, &ExpenseController::sync);
     retry.start();
+
     QTimer::singleShot(0, this, [this]() { configurePush(); });
 }
 
@@ -1800,6 +2158,7 @@ void ExpenseController::configureScope() {
 }
 
 void ExpenseController::login(QString url, QString user, QString password, QString cert) {
+
     if (running || offlineMode) return;
     url = url.trimmed();
     while (url.endsWith('/')) url.chop(1);
@@ -1811,7 +2170,9 @@ void ExpenseController::login(QString url, QString user, QString password, QStri
     }
     if (user.trimmed().isEmpty() || password.isEmpty()) { finish("Введите логин и пароль"); return; }
     push.stop();
+
     running = true; message = "Вход…"; emit changed();
+
     const auto oldUrl = api.baseUrl, oldCert = api.certificatePath, oldToken = api.token;
     api.baseUrl = url; api.certificatePath = cert.trimmed(); api.token.clear();
     api.request("POST", "/api/v1/auth/login", {{"username", user.trimmed()}, {"password", password}}, {}, 0, {},
@@ -1821,8 +2182,11 @@ void ExpenseController::login(QString url, QString user, QString password, QStri
             finish("Не удалось войти: " + result.error); configurePush(); return;
         }
         account = user.trimmed(); api.token = result.json.object().value("access_token").toString();
+
         settings.setValue("server", api.baseUrl); settings.setValue("certificate", api.certificatePath);
+
         settings.setValue("username", account); settings.setValue("token", api.token); settings.sync();
+
         configureScope(); configurePush(); running = false; emit changed(); sync();
     });
 }
@@ -1830,6 +2194,7 @@ void ExpenseController::login(QString url, QString user, QString password, QStri
 void ExpenseController::logout() {
     if (running) return;
     push.stop();
+
     api.token.clear(); settings.remove("token"); settings.sync();
 
     finish("Вы вышли. Локальные данные сохранены для следующего входа.");
@@ -1837,32 +2202,40 @@ void ExpenseController::logout() {
 
 void ExpenseController::setOffline(bool value) {
     if (running) return;
+
     offlineMode = value; settings.setValue("offline", value); settings.sync(); emit changed();
     configurePush();
     if (value) finish("Offline: изменения сохраняются только на телефоне"); else sync();
 }
 
 void ExpenseController::finish(QString text) {
+
     running = false; message = text; emit changed();
     if (resyncRequested) {
         resyncRequested = false;
+
         QTimer::singleShot(0, this, &ExpenseController::sync);
     }
 }
+
 void ExpenseController::failed(const ApiResult &result) {
     if (result.status == 401) {
         push.stop();
+
     api.token.clear(); settings.remove("token"); settings.sync();
         finish("Сессия истекла. Войдите заново; очередь изменений сохранена.");
     } else finish(result.error + ". Локальные данные и очередь сохранены.");
 }
 
 void ExpenseController::sync() {
+
     if (running || offlineMode || !authenticated()) return;
     configurePush();
+
     running = true; message = "Синхронизация…"; emit changed();
     next();
 }
+
 void ExpenseController::next() {
     try {
         const auto op = store.operation();
@@ -1870,12 +2243,14 @@ void ExpenseController::next() {
         if (op.isEmpty()) {
             api.request("GET", "/api/v1/expenses?include_deleted=true", {}, {}, 0, store.etag(), [this](ApiResult r) {
                 try {
+
                     lastBackend = r.backendId + " · v" + r.appVersion;
                     if (r.status == 304) { finish("Данные актуальны (HTTP 304)"); return; }
                     if (!r.ok()) { failed(r); return; }
                     if (!r.json.isArray()) { finish("Ошибка: вместо списка получен другой JSON"); return; }
                     store.snapshot(r.json.array(), r.etag);
                     finish("Синхронизация завершена");
+
                 } catch (const std::exception &e) { finish(QString::fromUtf8(e.what())); }
             });
             return;
@@ -1888,6 +2263,7 @@ void ExpenseController::next() {
             for (const auto &key : {"date", "category", "amount_minor", "comment"}) body[key] = payload.value(key);
             if (kind == "POST") body["id"] = id;
         }
+
         store.attempted(id);
         api.request(kind.toUtf8(), "/api/v1/expenses" + (kind == "POST" ? QString() : "/" + id), body,
                     op.value("key").toString().toUtf8(), op.value("version").toInt(), {},
@@ -1903,45 +2279,60 @@ void ExpenseController::next() {
                     finish("Неверный ответ сервера: операция сохранена для повтора"); return;
                 }
                 store.acknowledge(id, kind == "DELETE" ? QJsonObject() : r.json.object());
+
                 emit changed(); next();
+
             } catch (const std::exception &e) { finish(QString::fromUtf8(e.what())); }
         });
+
     } catch (const std::exception &e) { finish(QString::fromUtf8(e.what())); }
 }
 
 bool ExpenseController::save(QString id, QString date, QString category, QString amount, QString comment) {
     if (running || !authenticated()) return false;
+
     const auto parsedDate = QDate::fromString(date, Qt::ISODate);
+
     const auto match = QRegularExpression("^([0-9]{1,10})(?:[.,]([0-9]{1,2}))?$").match(amount.trimmed());
     if (!parsedDate.isValid() || parsedDate.toString(Qt::ISODate) != date || !match.hasMatch()
         || category.trimmed().isEmpty() || category.trimmed().size() > 80 || comment.size() > 2000) {
         finish("Проверьте дату YYYY-MM-DD, категорию, сумму и длину комментария"); return false;
     }
+
     const qint64 minor = match.captured(1).toLongLong() * 100 + match.captured(2).leftJustified(2, '0').toInt();
+
     if (minor <= 0 || minor > 100000000000LL) { finish("Сумма должна быть больше 0 и не больше 1 000 000 000 рублей"); return false; }
     try {
         auto row = id.isEmpty() ? QJsonObject() : store.item(id);
+
         const bool created = id.isEmpty();
         if (created) { id = QUuid::createUuid().toString().remove('{').remove('}'); row["version"] = 0; }
         else if (row.isEmpty() || row.value("deleted").toBool()) { finish("Расход больше не существует"); return false; }
         row["id"] = id; row["date"] = date; row["category"] = category.trimmed();
+
         row["amount_minor"] = static_cast<double>(minor); row["comment"] = comment.trimmed();
+
         store.enqueue(row, created ? "POST" : "PATCH");
         finish("Изменения сохранены на телефоне"); sync(); return true;
+
     } catch (const std::exception &e) { finish(QString::fromUtf8(e.what())); return false; }
 }
+
 void ExpenseController::remove(QString id) {
     if (running || !authenticated()) return;
     try {
         auto row = store.item(id);
         if (row.isEmpty()) return;
         store.enqueue(row, "DELETE"); finish("Удаление сохранено на телефоне"); sync();
+
     } catch (const std::exception &e) { finish(QString::fromUtf8(e.what())); }
 }
+
 QVariantMap ExpenseController::conflictInfo() const {
     const auto op = store.operation();
     return op.contains("server") ? op.toVariantMap() : QVariantMap();
 }
+
 void ExpenseController::resolve(bool keepLocal) {
     if (running) return;
     try {
@@ -1949,6 +2340,7 @@ void ExpenseController::resolve(bool keepLocal) {
         if (!op.contains("server")) return;
         store.resolve(op.value("id").toString(), keepLocal);
         finish("Конфликт разрешён"); sync();
+
     } catch (const std::exception &e) { finish(QString::fromUtf8(e.what())); }
 }
 ```
@@ -1963,11 +2355,14 @@ import Sailfish.Silica 1.0
 import "services"
 
 ApplicationWindow {
+
     id: app
     SystemNotification { controller: expensesController }
     initialPage: Component { MainPage {} }
     cover: Component {
+
         CoverBackground {
+
             Label { anchors.centerIn: parent; text: "Расходы ЛР3\n" + expensesController.pendingCount + " в очереди"; horizontalAlignment: Text.AlignHCenter }
         }
     }
@@ -1983,60 +2378,84 @@ import QtQuick 2.0
 import Sailfish.Silica 1.0
 
 Page {
+
     id: page
     allowedOrientations: Orientation.All
+
     property var controller: expensesController
+
     SilicaListView {
+
         id: list
         anchors.fill: parent
+
         model: controller.expenses
         PullDownMenu {
+
             MenuItem { text: "Новый расход"; enabled: !controller.busy && controller.authenticated; onClicked: pageStack.push(Qt.resolvedUrl("ExpenseDialog.qml")) }
+
             MenuItem { text: "Синхронизировать"; enabled: !controller.busy && controller.authenticated && !controller.offline; onClicked: controller.sync() }
         }
         header: Column {
             width: list.width
+
             PageHeader { title: "Расходы ЛР3" }
+
             SectionHeader { text: "Сервер и вход" }
+
             TextField { id: server; width: parent.width; label: "HTTPS-адрес ПК"; text: controller.serverUrl; enabled: !controller.busy; inputMethodHints: Qt.ImhUrlCharactersOnly }
+
             TextField { id: user; width: parent.width; label: "Пользователь"; text: controller.username; enabled: !controller.busy }
+
             PasswordField { id: password; width: parent.width; label: "Пароль"; enabled: !controller.busy }
+
             TextField { id: cert; width: parent.width; label: "Путь к доверенному сертификату"; text: controller.certificatePath; enabled: !controller.busy }
+
             Button {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Войти"; enabled: !controller.busy && !controller.offline
                 onClicked: { controller.login(server.text, user.text, password.text, cert.text); password.text = "" }
             }
+
             Button {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Выйти"; enabled: !controller.busy && controller.authenticated
                 onClicked: controller.logout()
             }
+
             TextSwitch { text: "Работать offline"; description: "Не отправлять запросы, сохранять изменения на телефоне"; checked: controller.offline; enabled: !controller.busy; onClicked: controller.offline = checked }
+
             Label {
                 x: Theme.horizontalPageMargin; width: parent.width - 2*x
                 text: controller.status; wrapMode: Text.Wrap; color: Theme.highlightColor
             }
+
             Label {
                 x: Theme.horizontalPageMargin; width: parent.width - 2*x
                 text: controller.pushStatus + "\nREST: " + controller.backend
                 wrapMode: Text.Wrap; font.pixelSize: Theme.fontSizeSmall
             }
+
             Label {
                 x: Theme.horizontalPageMargin; width: parent.width - 2*x
                 visible: controller.pushCount > 0
                 text: "Push-событий: " + controller.pushCount + " · " + controller.lastPush
                 wrapMode: Text.Wrap; color: Theme.highlightColor
             }
+
             BusyIndicator { anchors.horizontalCenter: parent.horizontalCenter; size: BusyIndicatorSize.Medium; running: controller.busy; visible: running }
+
             Label {
                 x: Theme.horizontalPageMargin; width: parent.width - 2*x
                 text: "Изменений в очереди: " + controller.pendingCount; wrapMode: Text.Wrap
             }
+
             Column {
                 width: parent.width
                 visible: !!controller.conflictInfo.server
+
                 SectionHeader { text: "Конфликт изменений" }
+
                 Label {
                     x: Theme.horizontalPageMargin; width: parent.width - 2*x; wrapMode: Text.Wrap
                     text: {
@@ -2047,34 +2466,51 @@ Page {
                                 "\nНа сервере: " + s.date + " · " + s.category + " · " + (s.amount_minor/100).toFixed(2) + " ₽ · " + s.comment + (s.deleted ? " (удалено)" : "")
                     }
                 }
+
                 Button { text: "Принять серверную"; anchors.horizontalCenter: parent.horizontalCenter; enabled: !controller.busy; onClicked: controller.resolve(false) }
+
                 Button { text: "Сохранить локальную"; anchors.horizontalCenter: parent.horizontalCenter; enabled: !controller.busy; onClicked: controller.resolve(true) }
             }
+
             Button {
                 anchors.horizontalCenter: parent.horizontalCenter; text: "Новый расход"
                 enabled: !controller.busy && controller.authenticated
+
                 onClicked: pageStack.push(Qt.resolvedUrl("ExpenseDialog.qml"))
             }
+
             SectionHeader { text: "Сохранённые расходы" }
+
             Label { x: Theme.horizontalPageMargin; text: "Пока нет расходов"; visible: list.count === 0 }
         }
         delegate: ListItem {
+
             id: entry
+
             property var row: modelData
+
             contentHeight: details.height + 2*Theme.paddingMedium
             enabled: !controller.busy && controller.authenticated
+
             onClicked: pageStack.push(Qt.resolvedUrl("ExpenseDialog.qml"), {record: row})
             menu: ContextMenu {
+
                 MenuItem { text: "Редактировать"; onClicked: pageStack.push(Qt.resolvedUrl("ExpenseDialog.qml"), {record: entry.row}) }
+
                 MenuItem { text: "Удалить"; onClicked: entry.remorseAction("Удаление", function () { controller.remove(entry.row.id) }) }
             }
+
             Column {
                 id: details; x: Theme.horizontalPageMargin; width: parent.width - 2*x; y: Theme.paddingMedium
+
                 Label { width: parent.width; text: row.date + " · " + row.category; wrapMode: Text.Wrap; color: Theme.highlightColor }
+
                 Label { width: parent.width; text: (row.amount_minor/100).toFixed(2) + " ₽" + (row.conflict ? " · конфликт" : row.pending ? " · не отправлено" : ""); wrapMode: Text.Wrap }
+
                 Label { width: parent.width; text: row.comment; visible: text.length > 0; font.pixelSize: Theme.fontSizeSmall; wrapMode: Text.Wrap }
             }
         }
+
         VerticalScrollDecorator {}
     }
 }
@@ -2089,17 +2525,28 @@ import QtQuick 2.0
 import Sailfish.Silica 1.0
 
 Page {
+
     id: dialog
+
     property var record: ({})
+
     SilicaFlickable {
+
         anchors.fill: parent; contentHeight: fields.height
+
         Column {
             id: fields; width: parent.width
+
             PageHeader { title: record.id ? "Редактирование" : "Новый расход" }
+
             TextField { id: date; width: parent.width; label: "Дата YYYY-MM-DD"; text: record.date || Qt.formatDate(new Date(), "yyyy-MM-dd") }
+
             TextField { id: category; width: parent.width; label: "Категория"; text: record.category || "" }
+
             TextField { id: amount; width: parent.width; label: "Сумма, рубли"; inputMethodHints: Qt.ImhFormattedNumbersOnly; text: record.amount_minor ? (record.amount_minor/100).toFixed(2) : "" }
+
             TextArea { id: comment; width: parent.width; label: "Комментарий"; text: record.comment || "" }
+
             Button {
                 text: "Сохранить"; anchors.horizontalCenter: parent.horizontalCenter
                 enabled: !expensesController.busy && expensesController.authenticated
@@ -2109,8 +2556,10 @@ Page {
                     else error.text = expensesController.status
                 }
             }
+
             Label { id: error; x: Theme.horizontalPageMargin; width: parent.width - 2*x; wrapMode: Text.Wrap; color: Theme.highlightColor }
         }
+
         VerticalScrollDecorator {}
     }
 }

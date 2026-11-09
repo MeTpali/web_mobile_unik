@@ -1,8 +1,12 @@
+// HTTP-транспорт или обработка действий пользователя. DOM-обработчики отправляют JSON по
+// относительному адресу API. Токен находится в памяти страницы; ES5 нужен старому браузеру телефона.
 /* ES5-синтаксис и XMLHttpRequest для браузера Qt 5.6; JWT живёт только в памяти. */
 (function () {
   'use strict';
   var token = '', busy = false;
+  // Находим DOM по id. Значение должно совпадать с HTML, иначе получится null.
   function el(id) { return document.getElementById(id); }
+  // Создаём случайный UUID для записи/операции; он не зависит от позиции строки и годится для повторов.
   function uuid() {
     var bytes = new Uint8Array(16);
     window.crypto.getRandomValues(bytes);
@@ -11,39 +15,59 @@
     for (var i = 0; i < 16; i++) hex.push(('0' + bytes[i].toString(16)).slice(-2));
     return hex.slice(0, 4).join('') + '-' + hex.slice(4, 6).join('') + '-' + hex.slice(6, 8).join('') + '-' + hex.slice(8, 10).join('') + '-' + hex.slice(10).join('');
   }
+  // Общий HTTP-транспорт задаёт заголовки и обрабатывает ответ/сбой. busy защищает форму от
+  // конкурирующих отправок.
   function request(method, path, data, version, callback) {
+    // Вставляем обычный текст, а не HTML: строки пользователя/сервера не выполняются как разметка.
     if (busy) { el('status').textContent = 'Дождитесь завершения запроса'; return; }
     busy = true;
+    // Асинхронный HTTP-клиент старого браузера. Ответ придёт в callback, не блокируя страницу.
     var xhr = new XMLHttpRequest();
     xhr.open(method, '/api/v1/' + path); xhr.timeout = 10000;
     xhr.setRequestHeader('Accept', 'application/json');
+    // Передаём Bearer JWT после входа. Он хранится в памяти страницы и не включается в URL.
     if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
     if (data) xhr.setRequestHeader('Content-Type', 'application/json');
     if (method !== 'GET') xhr.setRequestHeader('Idempotency-Key', uuid());
     if (version) xhr.setRequestHeader('If-Match', '"' + version + '"');
+    // onload означает получение ответа, даже HTTP-ошибки. Успех отдельно определяется диапазоном 2xx.
     xhr.onload = function () {
       busy = false;
       var body = null;
+      // Разбираем ответ; ошибку JSON нужно отличать от HTTP-статуса и проверять форму полученных данных.
       try { body = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (e) { /* Показываем исходный ответ ниже. */ }
+      // Вставляем обычный текст, а не HTML: строки пользователя/сервера не выполняются как разметка.
       el('status').textContent = method + ' ' + path + '\nHTTP ' + xhr.status + '\n' + xhr.getAllResponseHeaders() + '\n' + xhr.responseText;
       if (xhr.status >= 200 && xhr.status < 300 && callback) callback(body);
     };
+    // Вставляем обычный текст, а не HTML: строки пользователя/сервера не выполняются как разметка.
     xhr.onerror = xhr.ontimeout = function () { busy = false; el('status').textContent = 'Нет связи, ошибка TLS или тайм-аут. Обновите список перед повтором операции.'; };
+    // Преобразуем объект в JSON-тело с ключами серверной схемы; Content-Type сообщает формат.
     xhr.send(data ? JSON.stringify(data) : null);
   }
+  // Сбрасываем редактор и скрытые id/version, чтобы новая запись не перезаписала прежнюю.
   function clear() { el('task').reset(); el('recordId').value = ''; el('version').value = ''; el('due_date').value = new Date().toISOString().slice(0, 10); }
+  // Асинхронно читаем список, создаём DOM-строки и callbacks с id/version каждой записи.
   function refresh() {
     request('GET', 'tasks', null, null, function (rows) {
+      // Вставляем обычный текст, а не HTML: строки пользователя/сервера не выполняются как разметка.
       el('list').textContent = '';
       rows.forEach(function (row) {
+        // Создаём DOM узел записи. Кнопки замыкают id/version именно этой строки.
         var li = document.createElement('li');
+        // Вставляем обычный текст, а не HTML: строки пользователя/сервера не выполняются как разметка.
         var title = document.createElement('h3'); title.textContent = row.title;
+        // Создаём DOM узел записи. Кнопки замыкают id/version именно этой строки.
         var state = document.createElement('span'); state.className = 'task-state';
+        // Вставляем обычный текст, а не HTML: строки пользователя/сервера не выполняются как разметка.
         state.textContent = {todo: 'В планах', doing: 'В работе', done: 'Готово'}[row.status] || row.status;
+        // Вставляем обычный текст, а не HTML: строки пользователя/сервера не выполняются как разметка.
         var due = document.createElement('p'); due.textContent = 'Срок: ' + row.due_date;
+        // Вставляем обычный текст, а не HTML: строки пользователя/сервера не выполняются как разметка.
         var description = document.createElement('p'); description.textContent = row.description;
         li.appendChild(state); li.appendChild(title); li.appendChild(due);
         if (row.description) li.appendChild(description);
+        // Вставляем обычный текст, а не HTML: строки пользователя/сервера не выполняются как разметка.
         var edit = document.createElement('button'); edit.textContent = 'Изменить';
         edit.onclick = function () {
           el('recordId').value = row.id; el('version').value = row.version;
@@ -51,6 +75,7 @@
           el('state').value = row.status; el('description').value = row.description;
           el('task').scrollIntoView();
         };
+        // Вставляем обычный текст, а не HTML: строки пользователя/сервера не выполняются как разметка.
         var remove = document.createElement('button'); remove.textContent = 'Удалить';
         remove.onclick = function () { if (window.confirm('Удалить задачу?')) request('DELETE', 'tasks/' + row.id, null, row.version, refresh); };
         li.appendChild(edit); li.appendChild(remove); el('list').appendChild(li);
@@ -58,12 +83,14 @@
     });
   }
   el('login').onsubmit = function (event) {
+    // Отменяем обычный переход формы: запрос отправляется JavaScript, обновляется только нужная область.
     event.preventDefault();
     request('POST', 'auth/login', {username: el('username').value, password: el('password').value}, null, function (body) {
       token = body.access_token; el('password').value = ''; refresh();
     });
   };
   el('task').onsubmit = function (event) {
+    // Отменяем обычный переход формы: запрос отправляется JavaScript, обновляется только нужная область.
     event.preventDefault();
     var data = {due_date: el('due_date').value, title: el('title').value,
       status: el('state').value, description: el('description').value};
@@ -71,6 +98,7 @@
     if (!id) data.id = uuid();
     request(id ? 'PATCH' : 'POST', id ? 'tasks/' + id : 'tasks', data, el('version').value, function () { clear(); refresh(); });
   };
+  // Вставляем обычный текст, а не HTML: строки пользователя/сервера не выполняются как разметка.
   el('logout').onclick = function () { token = ''; el('list').textContent = ''; clear(); el('status').textContent = 'Вы вышли'; };
   el('refresh').onclick = refresh; el('reset').onclick = clear; clear();
 }());

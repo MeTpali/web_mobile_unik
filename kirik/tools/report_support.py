@@ -69,7 +69,7 @@ def listing(path):
     text = (ROOT / path).read_text()
     suffix = Path(path).suffix
     if suffix == '.py': text = python_code(text)
-    elif suffix in ('.yaml', '.yml', '.spec', '.desktop', '.sh', '.conf', '.service', '.pro') or path.endswith('CMakeLists.txt'):
+    elif suffix in ('.yaml', '.yml', '.spec', '.desktop', '.sh', '.conf', '.service', '.pro') or path.endswith(('CMakeLists.txt', 'requirements.txt')):
         text = hash_code(text)
     else:
         # JSX-комментарий включает фигурные скобки контейнера.

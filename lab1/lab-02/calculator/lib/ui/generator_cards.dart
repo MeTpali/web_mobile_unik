@@ -1,3 +1,7 @@
+// Карточки интерфейса: подключение, диапазон, последний результат и история. Получают данные и
+// обработчики действий через параметры. Виджеты показывают готовое состояние и вызывают контроллер.
+// Контроллеры полей хранят строки; в dispose освобождаются ресурсы. Сеть не запускается заново при
+// каждом build.
 // Небольшие виджеты представления. StatelessWidget получает состояние
 // от родителя; действия передаются через VoidCallback (void Function()).
 // const позволяет Flutter повторно использовать неизменяемые виджеты.
@@ -10,11 +14,16 @@ import '../models/random_result.dart';
 class SectionCard extends StatelessWidget {
   const SectionCard({super.key, required this.children});
   final List<Widget> children;
+  // Реализуем метод родителя/интерфейса. Анализатор проверяет совпадение имени и сигнатуры.
   @override
+  // Возвращает дерево Flutter для текущего состояния. Повторный build обновляет представление; сеть и
+  // вычисления остаются вне виджетов.
   Widget build(BuildContext context) => Card(
         margin: const EdgeInsets.only(bottom: 16),
+        // Отступ вокруг дочернего виджета. Меняет геометрию, не состояние и не сетевой обмен.
         child: Padding(
             padding: const EdgeInsets.all(20),
+            // Вертикальное дерево children; отступы и порядок определяют раскладку без изменения данных.
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: children,
@@ -34,11 +43,15 @@ class ConnectionCard extends StatelessWidget {
   final GeneratorConnectionState status;
   final VoidCallback onConnect;
   final VoidCallback onDisconnect;
+  // Реализуем метод родителя/интерфейса. Анализатор проверяет совпадение имени и сигнатуры.
   @override
+  // Возвращает дерево Flutter для текущего состояния. Повторный build обновляет представление; сеть и
+  // вычисления остаются вне виджетов.
   Widget build(BuildContext context) {
     final connected = status == GeneratorConnectionState.connected;
     final connecting = status == GeneratorConnectionState.connecting;
     return SectionCard(children: [
+      // Горизонтальная группа; Expanded при необходимости распределяет доступную ширину.
       Row(children: [
         Icon(Icons.circle,
             size: 12, color: connected ? Colors.green : Colors.orange),
@@ -50,6 +63,8 @@ class ConnectionCard extends StatelessWidget {
                 : 'Нет подключения'),
       ]),
       const SizedBox(height: 16),
+      // Контроллер хранит строку поля. Тип клавиатуры лишь помогает вводу, проверка чисел выполняется
+      // отдельно.
       TextField(
         controller: address,
         // Адрес нельзя менять, пока подключение устанавливается или активно.
@@ -93,7 +108,10 @@ class RangeCard extends StatelessWidget {
   final bool waiting;
   final bool canGenerate;
   final VoidCallback onGenerate;
+  // Реализуем метод родителя/интерфейса. Анализатор проверяет совпадение имени и сигнатуры.
   @override
+  // Возвращает дерево Flutter для текущего состояния. Повторный build обновляет представление; сеть и
+  // вычисления остаются вне виджетов.
   Widget build(BuildContext context) {
     return SectionCard(children: [
       Text('Диапазон', style: Theme.of(context).textTheme.titleLarge),
@@ -102,6 +120,7 @@ class RangeCard extends StatelessWidget {
       const SizedBox(height: 16),
       Form(
           key: formKey,
+          // Вертикальное дерево children; отступы и порядок определяют раскладку без изменения данных.
           child: Column(children: [
             TextFormField(
               controller: minimum,
@@ -145,7 +164,10 @@ class RangeCard extends StatelessWidget {
 class ResultCard extends StatelessWidget {
   const ResultCard({super.key, required this.result});
   final RandomResult? result;
+  // Реализуем метод родителя/интерфейса. Анализатор проверяет совпадение имени и сигнатуры.
   @override
+  // Возвращает дерево Flutter для текущего состояния. Повторный build обновляет представление; сеть и
+  // вычисления остаются вне виджетов.
   Widget build(BuildContext context) {
     return SectionCard(children: [
       const Text('Последний результат', textAlign: TextAlign.center),
@@ -172,7 +194,10 @@ class ResultCard extends StatelessWidget {
 class HistoryCard extends StatelessWidget {
   const HistoryCard({super.key, required this.history});
   final List<RandomResult> history;
+  // Реализуем метод родителя/интерфейса. Анализатор проверяет совпадение имени и сигнатуры.
   @override
+  // Возвращает дерево Flutter для текущего состояния. Повторный build обновляет представление; сеть и
+  // вычисления остаются вне виджетов.
   Widget build(BuildContext context) {
     return SectionCard(children: [
       Text('История · последние 10',

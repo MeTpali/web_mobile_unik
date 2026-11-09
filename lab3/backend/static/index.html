@@ -1,6 +1,8 @@
+<!-- Адаптивная вспомогательная браузерная форма. HTML задаёт структуру и доступные подписи. id связывает элемент с JavaScript, class — с CSS. Данные приходят через отдельный сетевой скрипт. -->
 <!doctype html>
 <html lang="ru">
 <head>
+  <!-- Метаданные: UTF-8 обеспечивает русский текст, viewport согласует CSS-ширину с мобильным экраном. -->
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Учёт расходов — REST API</title>
   <style>
@@ -14,23 +16,37 @@
 <body>
   <h1>Учёт расходов</h1>
   <p>Тестовая страница REST API v1. Все ресурсы загружаются с этого сервера. <a href="/docs">Swagger UI</a></p>
+  <!-- Смысловая область формы/списка/результата; class задаёт её положение через CSS. -->
   <section>
     <h2>Вход</h2>
+    <!-- Группа полей. JavaScript перехватывает submit по id, сохраняя страницу без перезагрузки. -->
     <form id="login"><label>Пользователь<input id="username" value="demo" required autocomplete="username"></label>
+      <!-- Подпись объясняет ввод; вложенный input связывается с ней без отдельного for. -->
       <label>Пароль<input id="password" type="password" required autocomplete="current-password"></label>
+      <!-- Кнопка формы по умолчанию отправляет submit. Для вспомогательных действий нужен type=button. -->
       <button>Войти</button><button type="button" id="logout">Выйти</button></form>
   </section>
+  <!-- Смысловая область формы/списка/результата; class задаёт её положение через CSS. -->
   <section>
     <h2>Создать или изменить расход</h2>
+    <!-- Группа полей. JavaScript перехватывает submit по id, сохраняя страницу без перезагрузки. -->
     <form id="expense"><input id="recordId" type="hidden"><input id="version" type="hidden">
+      <!-- Подпись объясняет ввод; вложенный input связывается с ней без отдельного for. -->
       <label>Дата<input id="date" type="date" required></label>
+      <!-- Подпись объясняет ввод; вложенный input связывается с ней без отдельного for. -->
       <label>Категория<input id="category" maxlength="80" required></label>
+      <!-- Подпись объясняет ввод; вложенный input связывается с ней без отдельного for. -->
       <label>Сумма, руб.<input id="amount" type="text" inputmode="decimal" placeholder="125.50" required></label>
+      <!-- Подпись объясняет ввод; вложенный input связывается с ней без отдельного for. -->
       <label>Комментарий<textarea id="comment" maxlength="2000"></textarea></label>
+      <!-- Кнопка формы по умолчанию отправляет submit. Для вспомогательных действий нужен type=button. -->
       <button>Сохранить</button><button type="button" id="reset">Очистить форму</button>
     </form>
   </section>
+  <!-- Смысловая область формы/списка/результата; class задаёт её положение через CSS. -->
   <section><h2>Расходы</h2><button id="refresh">Обновить список</button><ul id="list"></ul></section>
+  <!-- Смысловая область формы/списка/результата; class задаёт её положение через CSS. -->
   <section><h2>Последний HTTP-ответ</h2><pre id="status" role="status">Войдите в систему.</pre></section>
+  <!-- JS подключён после DOM: элементы существуют к моменту регистрации обработчиков. -->
   <script src="/browser.js"></script>
 </body></html>

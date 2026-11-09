@@ -1,3 +1,6 @@
+# Разбирает текстовый JSON, проверяет тип операции, request_id и поля. Формирует сообщения result и
+# error. Сетевой контракт отделён от транспорта и предметных вычислений. request_id связывает ответ с
+# конкретным ожиданием клиента.
 """Разбор текстового сообщения WebSocket и формирование одного ответа.
 
 Ошибки клиента являются обычными ответами и не разрывают соединение.
@@ -11,17 +14,23 @@ from .generator import InvalidRange, generate
 MAX_MESSAGE_BYTES = 4096
 
 
+# Создаёт единый формат type:error с сообщением и доступным request_id, чтобы даже ошибка относилась к
+# определённому запросу.
 def error(code: str, message: str, request_id=None) -> dict:
     """Единый конверт ошибок; неизвестный идентификатор передаётся как null."""
     return {"type": "error", "request_id": request_id,
             "error": {"code": code, "message": message}}
 
 
+# Отклоняет NaN/Infinity при JSON-разборе. Некоторые библиотеки допускают их, но сетевой контракт
+# требует конечных чисел.
 def reject_constant(value):
     """JSON не разрешает NaN/Infinity, хотя стандартный json.loads их принимает."""
     raise ValueError(f"Недопустимая JSON-константа: {value}")
 
 
+# Разбирает JSON, проверяет type/request_id/аргументы, вызывает предметную функцию и формирует
+# result/error. request_id связывает ответ с ожиданием конкретного клиента.
 def handle_message(text: str) -> dict:
     """Протокол: generate + min/max + необязательный строковый request_id."""
     # Ограничение измеряется в байтах UTF-8, а не в количестве символов.
@@ -33,12 +42,16 @@ def handle_message(text: str) -> dict:
         data = json.loads(text, parse_constant=reject_constant)
     except (ValueError, RecursionError):
         return error("INVALID_JSON", "Некорректный JSON")
+    # Явно проверяем форму/тип JSON. Декодирование само по себе не гарантирует объект или число нужного
+    # типа.
     if not isinstance(data, dict):
         return error("INVALID_REQUEST", "Сообщение должно быть JSON-объектом")
 
     # ID используется для сопоставления ответа с запросом. Он не означает,
     # что повторная отправка вернёт прежнее число: генерация каждый раз новая.
     request_id = data.get("request_id")
+    # Явно проверяем форму/тип JSON. Декодирование само по себе не гарантирует объект или число нужного
+    # типа.
     if request_id is not None and (not isinstance(request_id, str) or not 1 <= len(request_id) <= 64):
         return error("INVALID_REQUEST", "request_id должен быть строкой длиной от 1 до 64 символов или null")
     if data.get("type") != "generate":

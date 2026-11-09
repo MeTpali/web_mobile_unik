@@ -1,3 +1,6 @@
+# Реальный сценарий отказа backend, обновления и отката под нагрузкой. Сценарий работает на
+# компьютере, не телефоне. Blue/green — группы версий; готовность проверяется до переключения. Данные
+# и секреты не должны сбрасываться при обновлении кода.
 """sudo /opt/kirik-tasks/venv/bin/python deploy/scripts/exercise-cluster.py
 
 Реальное отключение backend, blue-green и откат под непрерывными HTTPS-запросами.
@@ -21,6 +24,8 @@ TLS = ssl.create_default_context(cafile=str(ROOT / 'certificates/server.crt'))
 URL = 'https://127.0.0.1:9543'
 
 
+# Ограниченно ждёт условие готовности. Тайм-аут превращает зависший сценарий в диагностируемую ошибку
+# вместо бесконечного цикла.
 def wait(condition, message, timeout=40):
     end = time.monotonic() + timeout
     while time.monotonic() < end:
@@ -30,10 +35,14 @@ def wait(condition, message, timeout=40):
     raise AssertionError(message)
 
 
+# Управляет конкретной systemd-службой стенда. Это реальный отказ/старт процесса, а не имитация ответа
+# внутри теста.
 def service(action, *names):
     subprocess.run(['systemctl', action, *['kirik-tasks@' + n for n in names]], check=True)
 
 
+# Вызывает штатный сценарий переключения группы, чтобы испытание соответствовало реальным действиям
+# администратора.
 def switch(color):
     subprocess.run(['bash', str(ROOT / 'deploy/scripts/switch-release.sh'), color], check=True)
 
@@ -50,6 +59,8 @@ def main():
         login.raise_for_status()
         h['Authorization'] = 'Bearer ' + login.json()['access_token']
 
+        # Непрерывно отправляет HTTP-запросы во время отказа/переключения. Собирает backend и ошибки:
+        # единичный успешный запрос после переключения не доказал бы отсутствие простоя.
         def monitor():
             with httpx.Client(verify=TLS, timeout=5, trust_env=False) as client:
                 while not stop.is_set():
@@ -63,9 +74,13 @@ def main():
                         failures.append(str(exc))
                     stop.wait(0.1)
 
+        # Наблюдает WebSocket-события и переподключения во время отказа. Результаты сохраняются для проверки
+        # восстановления доставки.
         def watch():
             while not stop.is_set():
                 try:
+                    # WebSocket-контекст закрывает сокет при выходе/ошибке. Это не SQL-транзакция;
+                    # после разрыва внешний цикл попытается подключиться заново.
                     with connect('wss://127.0.0.1:9543/api/v1/events', ssl=TLS, additional_headers=h,
                                  open_timeout=5, close_timeout=2) as ws:
                         connected = json.loads(ws.recv(timeout=6))
@@ -85,6 +100,8 @@ def main():
             t.start()
         ids = []
 
+        # Создаём собственную тестовую запись с уникальным id/ключом, запоминаем id для уборки
+        # и ждём именно её push-событие. Это реальный запрос, а не прямое изменение БД.
         def create():
             data = {'id': str(uuid4()), 'due_date': '2026-10-25', 'title': 'Deployment test',
                     'status': "todo", 'description': 'temporary'}
@@ -104,6 +121,7 @@ def main():
             create()
             service('start', initial_node)
             port = 9301 if initial_node == 'blue-1' else 9302
+            # Проверяет готовность перед следующим шагом сценария, не подменяя её фиксированной короткой паузой.
             def ready():
                 try:
                     return c.get(f'http://127.0.0.1:{port}/ready').status_code == 200
@@ -129,6 +147,8 @@ def main():
             service('stop', 'green-1', 'green-2')
             wait(lambda: connections[-1]['instance'].startswith('blue'), 'WS не восстановился после отката')
             create()
+        # Этот блок выполняется и при нормальном выходе, и при исключении: подходит для освобождения
+        # ресурса/отписки.
         finally:
             # Возвращаем blue даже при неудаче; старые задачи не трогаем.
             switch('blue')

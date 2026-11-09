@@ -1,26 +1,43 @@
+# Шаблон запуска backend через systemd. Шаблон systemd создаёт отдельные процессы по %i. Окружение
+# задаёт порт и общие параметры; экземпляры имеют разные PID, но общую БД.
 [Unit]
 Description=Tasks backend %i
+# Порядок systemd; сам по себе After не запускает зависимость.
 After=network.target postgresql.service
 Wants=postgresql.service
 
 [Service]
+# Application обозначает запускаемое приложение desktop-файла.
 Type=simple
+# Системный пользователь службы, отделённый от root и аккаунта разработчика.
 User=kiriktasks
+# Группа определяет права службы на чтение конфигурации и данных.
 Group=kiriktasks
+# Каталог процесса backend: относительные пути и импорт app разрешаются отсюда.
 WorkingDirectory=/opt/kirik-tasks/instances/%i/backend
+# Окружение вне исходников: общие секреты и параметры экземпляра. Не печатать секреты в журнал.
 EnvironmentFile=/etc/kirik-tasks/common.env
+# Окружение вне исходников: общие секреты и параметры экземпляра. Не печатать секреты в журнал.
 EnvironmentFile=/etc/kirik-tasks/%i.env
 Environment=INSTANCE_ID=%i
+# Команда systemd запускает отдельный backend с портом из окружения.
 ExecStart=/opt/kirik-tasks/venv/bin/python -m uvicorn app.entry:app --host 127.0.0.1 --port ${PORT} --proxy-headers --forwarded-allow-ips 127.0.0.1 --timeout-graceful-shutdown 15 --ws websockets --ws-per-message-deflate false --ws-max-size 4096 --ws-ping-interval 15 --ws-ping-timeout 15
+# Политика восстановления процесса после сбоя; не заменяет вторую реплику.
 Restart=on-failure
+# Пауза перед рестартом ограничивает частоту повторов при постоянной ошибке.
 RestartSec=2
 KillSignal=SIGINT
 TimeoutStopSec=25
+# Запрещает процессу получать дополнительные привилегии через последующие exec.
 NoNewPrivileges=true
+# Изолированный временный каталог службы.
 PrivateTmp=true
+# Ограничение записи службы в системные каталоги.
 ProtectSystem=strict
+# Ограничение доступа к домашним каталогам.
 ProtectHome=true
 UMask=0077
 
 [Install]
+# Target автозапуска после enable. Это не команда немедленного старта.
 WantedBy=multi-user.target
