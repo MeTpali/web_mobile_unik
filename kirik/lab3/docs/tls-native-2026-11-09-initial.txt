@@ -1,0 +1,5 @@
+[I] unknown:0 - PASS SQLite: offline queue, restart, isolation, conflicts, tombstones
+[I] unknown:0 - Native login done "Синхронизация завершена"
+[I] unknown:0 - Offline enabled
+[I] unknown:0 - Destroying first controller
+[I] unknown:0 - Restoring controller

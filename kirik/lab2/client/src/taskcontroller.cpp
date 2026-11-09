@@ -15,7 +15,7 @@ TaskController::TaskController(const QString &dataDir, QObject *parent)
     : QObject(parent), api(this), store(dataDir + "/tasks.sqlite") {
     // Восстанавливаем настройку; второй аргумент используется только при её отсутствии. Значение могло
     // сохраниться от предыдущего запуска.
-    api.baseUrl = settings.value("server", "https://172.20.10.14:8543").toString();
+    api.baseUrl = settings.value("server", "https://10.215.223.25:8543").toString();
     // Восстанавливаем настройку; второй аргумент используется только при её отсутствии. Значение могло
     // сохраниться от предыдущего запуска.
     // Публичный сертификат устанавливается вместе с RPM; закрытый ключ остаётся на сервере.

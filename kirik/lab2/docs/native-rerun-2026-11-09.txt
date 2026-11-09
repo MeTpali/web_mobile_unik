@@ -1,0 +1,2 @@
+[I] unknown:0 - PASS SQLite: offline queue, restart, isolation, conflicts, tombstones
+[C] unknown:0 - FAIL HTTPS login: SSL handshake failed

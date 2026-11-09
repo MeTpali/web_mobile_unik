@@ -16,14 +16,14 @@ systemctl list-units 'kirik-tasks@*' --all --no-pager
 sudo ls /etc/kirik-tasks /opt/kirik-tasks/releases
 ```
 
-Примеры используют настроенный по умолчанию IP ПК `172.20.10.14`, для которого перед запуском нужно проверить SAN сертификата. Если IP изменился, заменить его в URL и проверить сертификат. Телефон должен иметь сетевой маршрут к ПК; доступ по USB/SSH не подтверждает доступность HTTPS по Wi-Fi.
+Примеры используют настроенный по умолчанию IP ПК `10.215.223.25`, для которого перед запуском нужно проверить SAN сертификата. Если IP изменился, заменить его в URL и проверить сертификат. Телефон должен иметь сетевой маршрут к ПК; доступ по USB/SSH не подтверждает доступность HTTPS по Wi-Fi.
 
 Ожидаемая схема:
 
 | Компонент | Назначение |
 |---|---|
-| `https://172.20.10.14:9543` | Единый адрес nginx для браузера и приложения |
-| `wss://172.20.10.14:9543/api/v1/events` | Push-канал; клиент выводит адрес из HTTPS URL |
+| `https://10.215.223.25:9543` | Единый адрес nginx для браузера и приложения |
+| `wss://10.215.223.25:9543/api/v1/events` | Push-канал; клиент выводит адрес из HTTPS URL |
 | `kirik-tasks@blue-1`, `kirik-tasks@blue-2` | Версия 1.0.0, HTTP на 127.0.0.1:9301/9302 |
 | `kirik-tasks@green-1`, `kirik-tasks@green-2` | Версия 2.0.0, HTTP на 127.0.0.1:9401/9402 |
 | PostgreSQL `kirik_tasks` | Общие задачи, версии, идемпотентность и события |
@@ -87,15 +87,15 @@ bash tools/build-client.sh
 
 ```bash
 ~/AuroraPlatformSDK/sdks/aurora_psdk/sdk-chroot rpmsign-external verify \
-  ~/Unik/web_mobile_unik/kirik/lab3/client/RPMS/ru.kirik.taskslab3-2.0.0-17.armv7hl.rpm
+  ~/Unik/web_mobile_unik/kirik/lab3/client/RPMS/ru.kirik.taskslab3-2.0.0-18.armv7hl.rpm
 ```
 
 Установка:
 
 ```bash
-scp -O client/RPMS/ru.kirik.taskslab3-2.0.0-17.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
+scp -O client/RPMS/ru.kirik.taskslab3-2.0.0-18.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
 ssh defaultuser@192.168.2.16 \
-  'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/ru.kirik.taskslab3-2.0.0-17.armv7hl.rpm'
+  'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/ru.kirik.taskslab3-2.0.0-18.armv7hl.rpm'
 ```
 
 Если версия/Release изменились, использовать имя из вывода сборщика. Ожидается `Installation successful`. При запрете тихой установки убрать `--silent` и подтвердить установку на телефоне. Не использовать `devel-su rpm -Uvh` для обычного приложения: ранее политика отвергала пакет как несистемный.
@@ -108,13 +108,13 @@ ssh defaultuser@192.168.2.16 \
 
 | Поле | Значение |
 |---|---|
-| Сервер | `https://172.20.10.14:9543` |
+| Сервер | `https://10.215.223.25:9543` |
 | Пользователь / пароль | `demo` / `demo12345` |
 | Сертификат | `/usr/share/ru.kirik.taskslab3/certificates/server.crt` |
 
 Выключить offline, войти, дождаться синхронизации и подключения push. Сервер задаётся через `https://`, WSS-сервис настраивается автоматически. Не вводить порт ЛР2 8543.
 
-В браузере ПК открыть `https://172.20.10.14:9543/`, войти под тем же `demo`:
+В браузере ПК открыть `https://10.215.223.25:9543/`, войти под тем же `demo`:
 
 1. Создать задачу `Демо ЛР3 push`.
 2. Без нажатия «Синхронизировать» на телефоне дождаться появления записи, изменения счётчика событий и текста последнего события.
@@ -201,7 +201,7 @@ curl --cacert certificates/server.crt https://127.0.0.1:9543/meta
 sudo systemctl stop kirik-tasks@blue-1 kirik-tasks@blue-2
 ```
 
-На телефоне дождаться восстановления WSS на green; создать запись и проверить обратный push из браузера. URL остаётся `https://172.20.10.14:9543`, повторный вход обычно не требуется: JWT и БД общие.
+На телефоне дождаться восстановления WSS на green; создать запись и проверить обратный push из браузера. URL остаётся `https://10.215.223.25:9543`, повторный вход обычно не требуется: JWT и БД общие.
 
 Для показа новой функции green получить JWT в терминале B и вызвать summary:
 
@@ -238,7 +238,7 @@ curl -i --cacert certificates/server.crt https://127.0.0.1:9543/api/v1/summary \
 
 ```bash
 ssh defaultuser@192.168.2.16 \
-  'QT_LOGGING_TO_CONSOLE=1 /usr/bin/ru.kirik.taskslab3-tests https://172.20.10.14:9543 /usr/share/ru.kirik.taskslab3/certificates/server.crt --watch'
+  'QT_LOGGING_TO_CONSOLE=1 /usr/bin/ru.kirik.taskslab3-tests https://10.215.223.25:9543 /usr/share/ru.kirik.taskslab3/certificates/server.crt --watch'
 ```
 
 Дождаться вывода о подключении WSS/первых успешных запросах. Монитор ждёт сценарий до 10 минут. Затем **сразу** терминал B:
@@ -284,7 +284,7 @@ cd backend
 
 ```bash
 ssh defaultuser@192.168.2.16 \
-  'QT_LOGGING_TO_CONSOLE=1 /usr/bin/ru.kirik.taskslab3-tests https://172.20.10.14:9543 /usr/share/ru.kirik.taskslab3/certificates/server.crt'
+  'QT_LOGGING_TO_CONSOLE=1 /usr/bin/ru.kirik.taskslab3-tests https://10.215.223.25:9543 /usr/share/ru.kirik.taskslab3/certificates/server.crt'
 ```
 
 Ожидаются `PASS SQLite`, `PASS WSS native` и `PASS HTTPS native`. Тестовые программы используют временные локальные данные и собственные серверные записи. Offline-кэш и очередь клиента ЛР3 можно дополнительно показать по сценарию ЛР2, используя его собственный сервер 9543.
@@ -336,4 +336,7 @@ curl --cacert certificates/server.crt https://127.0.0.1:9543/ready
 Настройки организованы карточками: состояние аккаунта, подключение (адрес/сертификат), учётная запись (вход/выход), синхронизация (offline/очередь/статус/push). Конфликтующие версии телефона и сервера показаны отдельно, оба прежних действия разрешения сохранены.
 
 
-Адрес клиента по умолчанию: `https://172.20.10.14:9543`. Сертификат в исходниках выпущен для `172.20.10.14`, `localhost` и `127.0.0.1`. Для обновления nginx: `sudo bash deploy/scripts/update-tls.sh`. Клиент использует публичный сертификат из RPM: `/usr/share/ru.kirik.taskslab3/certificates/server.crt`.
+Адрес клиента по умолчанию: `https://10.215.223.25:9543`. Сертификат в исходниках выпущен для `172.20.10.14`, `localhost` и `127.0.0.1`. Для обновления nginx: `sudo bash deploy/scripts/update-tls.sh`. Клиент использует публичный сертификат из RPM: `/usr/share/ru.kirik.taskslab3/certificates/server.crt`.
+
+
+Текущий сертификат включает `10.215.223.25` и `172.20.10.14` в SAN. В RPM устанавливается публичный сертификат из этой лабораторной. Сервер должен использовать соответствующую пару ключа/сертификата; одно совпадение IP не обеспечивает доверие к другой самоподписанной паре.

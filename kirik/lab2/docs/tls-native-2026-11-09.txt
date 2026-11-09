@@ -1,0 +1,2 @@
+[I] unknown:0 - PASS SQLite: offline queue, restart, isolation, conflicts, tombstones
+[I] unknown:0 - PASS HTTPS native: login, offline CRUD, restart, sync, conflicts, ETag 304
