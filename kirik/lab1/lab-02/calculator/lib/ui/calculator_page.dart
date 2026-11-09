@@ -17,7 +17,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   // Контроллер ввода хранит строку между build. Его нужно dispose при закрытии страницы.
   final address = TextEditingController(
       text: const String.fromEnvironment('WS_URL',
-          defaultValue: 'ws://192.168.0.104:8100/ws/calculate'));
+          defaultValue: 'ws://172.20.10.14:8100/ws/calculate'));
   // Контроллер ввода хранит строку между build. Его нужно dispose при закрытии страницы.
   final first = TextEditingController(text: '12.5');
   // Контроллер ввода хранит строку между build. Его нужно dispose при закрытии страницы.

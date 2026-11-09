@@ -12,7 +12,7 @@ python3 -m venv backend/.venv
 backend/.venv/bin/python -m pip install -r backend/requirements.txt
 ```
 
-Если сертификата нет, выполнить `bash certificates/generate.sh 192.168.0.104 192.168.0.118`. Уже существующие файлы не перезаписываются. При другом IP проверить SAN; после замены сертификата пересобрать клиент, а для ЛР3 обновить установленный TLS-конфиг nginx. Закрытый ключ остаётся только на сервере.
+Если сертификата нет, выполнить `bash certificates/generate.sh 172.20.10.14 192.168.0.118`. Уже существующие файлы не перезаписываются. При другом IP проверить SAN; после замены сертификата пересобрать клиент, а для ЛР3 обновить установленный TLS-конфиг nginx. Закрытый ключ остаётся только на сервере.
 
 ## Запуск
 
@@ -40,20 +40,20 @@ curl --cacert certificates/server.crt https://127.0.0.1:9543/ready
 
 Green добавляет `/api/v1/summary`: `count`, `done`, `open`. Blue возвращает 404 для этого нового маршрута. CRUD, JWT и схема PostgreSQL совместимы. WSS `/api/v1/events` отправляет `task.changed`; клиент после уведомления перечитывает REST. Повторы и heartbeat восстанавливают связь.
 
-На ПК и телефоне: **https://192.168.0.104:9543/**; документация `/docs`, `/openapi.json`. Вход `demo` / `demo12345`; `viewer` — чтение. Проверка: `curl --cacert certificates/server.crt https://192.168.0.104:9543/ready`. Не отключать TLS-проверку через `-k`.
+На ПК и телефоне: **https://172.20.10.14:9543/**; документация `/docs`, `/openapi.json`. Вход `demo` / `demo12345`; `viewer` — чтение. Проверка: `curl --cacert certificates/server.crt https://172.20.10.14:9543/ready`. Не отключать TLS-проверку через `-k`.
 
 ## Сборка, подпись и установка клиента
 
 ```bash
 cd ~/Unik/web_mobile_unik/kirik/lab3
 bash tools/build-client.sh
-scp -O client/RPMS/ru.kirik.taskslab3-2.0.0-11.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
-ssh defaultuser@192.168.2.16 'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/ru.kirik.taskslab3-2.0.0-11.armv7hl.rpm'
+scp -O client/RPMS/ru.kirik.taskslab3-2.0.0-17.armv7hl.rpm defaultuser@192.168.2.16:/home/defaultuser/
+ssh defaultuser@192.168.2.16 'sdk-deploy-rpm --silent --keepUserData /home/defaultuser/ru.kirik.taskslab3-2.0.0-17.armv7hl.rpm'
 ```
 
 При смене Version/Release использовать имя из вывода сборщика. Пакет подписывается штатной ключевой парой Aurora SDK и проверяется. Скрипт использует PSDK `~/AuroraPlatformSDK/sdks/aurora_psdk`, target armv7hl; пути меняются через `LAB_PSDK`, `LAB_SDK`, `LAB_TARGET`. При запрете тихой установки убрать `--silent` и подтвердить на телефоне. `devel-su rpm -Uvh` не применять для пользовательского пакета.
 
-В приложении указать `https://192.168.0.104:9543` и `/usr/share/ru.kirik.taskslab3/certificates/server.crt`. Новый элемент — «Новая задача», нажатие редактирует, долгое нажатие открывает меню удаления. Статус выбирается списком. Offline-переключатель приостанавливает сеть; очередь, JWT и кэш сохраняются между запусками. При конфликте доступны локальная и серверная версии.
+В приложении указать `https://172.20.10.14:9543` и `/usr/share/ru.kirik.taskslab3/certificates/server.crt`. Новый элемент — «Новая задача», нажатие редактирует, долгое нажатие открывает меню удаления. Статус выбирается списком. Offline-переключатель приостанавливает сеть; очередь, JWT и кэш сохраняются между запусками. При конфликте доступны локальная и серверная версии.
 
 ## Проверки
 
@@ -65,7 +65,7 @@ cd ~/Unik/web_mobile_unik/kirik/lab3/backend
 Для ЛР3 тестам нужны запущенные blue 9301/9302 и nginx 9543. Нативная проверка:
 
 ```bash
-ssh defaultuser@192.168.2.16 'QT_LOGGING_TO_CONSOLE=1 /usr/bin/ru.kirik.taskslab3-tests https://192.168.0.104:9543 /usr/share/ru.kirik.taskslab3/certificates/server.crt'
+ssh defaultuser@192.168.2.16 'QT_LOGGING_TO_CONSOLE=1 /usr/bin/ru.kirik.taskslab3-tests https://172.20.10.14:9543 /usr/share/ru.kirik.taskslab3/certificates/server.crt'
 ```
 
 [Полная демонстрация](DEMONSTRATION.md) · [Разбор архитектуры](EXPLANATION.md) · [Фактические результаты](docs/VALIDATION.md). Отчёты находятся в [../reports](../reports/); пересборка из `kirik`: `python3 tools/build_reports.py`. Листинги в отчётах — без комментариев.
@@ -82,4 +82,7 @@ sudo /opt/kirik-tasks/venv/bin/python deploy/scripts/exercise-cluster.py
 
 С версии клиента 2.0.0-11 отдельный компонент `client/qml/services/SystemNotification.qml` публикует штатные уведомления Авроры при WSS-событии `task.changed`: «Задача добавлена», «Задача изменена», «Задача удалена». Текст появляется в шторке и передаётся для баннера. Новые изменения заменяют одну запись, дубли и heartbeat игнорируются.
 
-В приложении «Задачи ЛР3» оставить online и подключение к https://192.168.0.104:9543 под demo. На той же браузерной странице создать или изменить задачу: список телефона обновляется и публикуется уведомление. Зависимость Nemo.Notifications включена в RPM, дополнительные desktop-разрешения не добавляются. Видимость баннера определяется настройками ОС; при необходимости проверить шторку. После полного закрытия процесса новых уведомлений не будет: отдельной фоновой службы нет.
+В приложении «Задачи ЛР3» оставить online и подключение к https://172.20.10.14:9543 под demo. На той же браузерной странице создать или изменить задачу: список телефона обновляется и публикуется уведомление. Зависимость Nemo.Notifications включена в RPM, дополнительные desktop-разрешения не добавляются. Видимость баннера определяется настройками ОС; при необходимости проверить шторку. После полного закрытия процесса новых уведомлений не будет: отдельной фоновой службы нет.
+
+
+Адрес клиента по умолчанию: `https://172.20.10.14:9543`. Сертификат в исходниках выпущен для `172.20.10.14`, `localhost` и `127.0.0.1`. Для обновления nginx: `sudo bash deploy/scripts/update-tls.sh`. Клиент использует публичный сертификат из RPM: `/usr/share/ru.kirik.taskslab3/certificates/server.crt`.

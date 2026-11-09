@@ -6,7 +6,7 @@ Summary: Offline tasks — laboratory 2
 # Версия функциональности пакета, отдельно от Release пересборки.
 Version: 1.0.0
 # Номер пересборки этой версии: позволяет установщику отличать обновлённый пакет.
-Release: 9
+Release: 11
 License: BSD-3-Clause
 URL: https://developer.auroraos.ru
 # Архив исходников RPM; макросы подставляют имя и версию.
