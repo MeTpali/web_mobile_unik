@@ -103,7 +103,7 @@ class _GeneratorPageState extends State<GeneratorPage> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text('Лабораторная № 2 · Вариант 6',
+                      Text('Лабораторная № 1 · Вариант 6',
                           style: Theme.of(context).textTheme.labelLarge),
                       const SizedBox(height: 16),
                       // Карточки получают данные и callbacks через параметры.

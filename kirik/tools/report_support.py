@@ -112,6 +112,10 @@ def docx(path, markdown, template):
         props = ET.SubElement(p, tag('pPr'))
         ET.SubElement(props, tag('pStyle'), {tag('val'): style})
         if page_break: ET.SubElement(props, tag('pageBreakBefore'))
+        if text.startswith('[Место для изображения:'):
+            # В Word оставляем свободную область для ручной вставки фотографии.
+            ET.SubElement(props, tag('spacing'), {tag('before'): '120', tag('after'): '2400'})
+            ET.SubElement(props, tag('keepNext'))
         if text:
             run = ET.SubElement(p, tag('r'))
             ET.SubElement(run, tag('t'), {'{http://www.w3.org/XML/1998/namespace}space': 'preserve'}).text = text

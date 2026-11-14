@@ -11,7 +11,7 @@ npm test
 npm start
 ```
 
-Node.js 24.13+ (ветка 24), Express; адрес ПК http://127.0.0.1:3100, телефона http://192.168.0.104:3100. Сборка Vite не требуется: сервер раздаёт `public/` с HTML, адаптивным CSS и ES5 JavaScript, включая асинхронный XMLHttpRequest. Это позволяет избежать зависимости от современного JS-движка браузера Авроры. POST `/api/calculate`: `{"a":12.5,"b":2,"operation":"/"}` → `{"a":12.5,"b":2,"operation":"/","value":6.25}`.
+Node.js 24.13+ (ветка 24), Express; адрес ПК http://127.0.0.1:3100, телефона http://172.20.10.14:3100. Сборка Vite не требуется: сервер раздаёт `public/` с HTML, адаптивным CSS и ES5 JavaScript, включая асинхронный XMLHttpRequest. Это позволяет избежать зависимости от современного JS-движка браузера Авроры. POST `/api/calculate`: `{"a":12.5,"b":2,"operation":"/"}` → `{"a":12.5,"b":2,"operation":"/","value":6.25}`.
 
 ## WebSocket и Flutter
 
@@ -28,7 +28,7 @@ python3 -m venv .venv
 cd ~/Unik/web_mobile_unik/kirik/lab1/lab-02/calculator
 flutter-aurora pub get
 flutter-aurora devices
-flutter-aurora run -d <ID> --dart-define=WS_URL=ws://192.168.0.104:8100/ws/calculate
+flutter-aurora run -d <ID> --dart-define=WS_URL=ws://172.20.10.14:8100/ws/calculate
 ```
 
 Зависимости Flutter установлены пользователем. Сборка, установка и нативный сценарий с настоящим WebSocket на телефоне прошли. Пакет платформы — ru.kirik.calculator, отдельный от исходного варианта №6. Для запуска уже настроенным SDK можно использовать полный путь `~/.local/opt/flutter_aurora_linux/bin/flutter` вместо оболочки `flutter-aurora`.

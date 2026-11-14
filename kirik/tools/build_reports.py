@@ -1,9 +1,14 @@
 """Цельные отчёты варианта 1: титульник, задание, выполнение, листинги без комментариев."""
 from pathlib import Path
 from zipfile import ZipFile
+import importlib.util
 import report_support as support
 
 ROOT = Path(__file__).resolve().parents[1]
+_screenshots_spec = importlib.util.spec_from_file_location(
+    'screenshot_sections', ROOT.parent / 'tools/screenshot_sections.py')
+_screenshots = importlib.util.module_from_spec(_screenshots_spec)
+_screenshots_spec.loader.exec_module(_screenshots)
 
 
 def files(number):
@@ -74,6 +79,7 @@ def generate():
         validation = ROOT / f'lab{number}/docs/VALIDATION.md'
         text += validation.read_text().split('\n', 1)[1].strip() if validation.exists() else 'Результаты проверок фиксируются отдельно; отсутствие записи не означает успешную проверку.'
         text += f'\n\nПорядок подготовки, запуска и полной демонстрации: lab{number}/README.md и lab{number}/DEMONSTRATION.md. Учётные данные для задач: demo / demo12345. Титульный лист заполняется студентом.\n'
+        text += _screenshots.report_section(number, kirik=True)
         path = out / f'Отчёт_ЛР_{number:02}'
         path.with_suffix('.md').write_text(text)
         support.docx(path.with_suffix('.docx'), text, template)

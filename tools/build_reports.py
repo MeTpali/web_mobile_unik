@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile, ZIP_DEFLATED
+from screenshot_sections import report_section
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'reports'
@@ -110,6 +111,10 @@ def docx(path, markdown, template):
         props = ET.SubElement(p, tag('pPr'))
         ET.SubElement(props, tag('pStyle'), {tag('val'): style})
         if page_break: ET.SubElement(props, tag('pageBreakBefore'))
+        if text.startswith('[Место для изображения:'):
+            # В Word оставляем свободную область для ручной вставки фотографии.
+            ET.SubElement(props, tag('spacing'), {tag('before'): '120', tag('after'): '2400'})
+            ET.SubElement(props, tag('keepNext'))
         if text:
             run = ET.SubElement(p, tag('r'))
             ET.SubElement(run, tag('t'), {'{http://www.w3.org/XML/1998/namespace}space': 'preserve'}).text = text
@@ -189,6 +194,7 @@ def generate():
         text += sources(files) + '\n\n## 2.4. Запуск и проверка\n\n' + validation.strip() + '\n'
         # Ссылки и технические пути приводим к действующей структуре репозитория.
         text = re.sub(r'(?m)^Часть\s+\d+\.?\s*', '', text)
+        text += report_section(number)
         base = OUT / f'Отчёт_ЛР_{number:02}'
         base.with_suffix('.md').write_text(text)
         docx(base.with_suffix('.docx'), text, template)
