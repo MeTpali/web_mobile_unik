@@ -15,7 +15,7 @@ ExpenseController::ExpenseController(const QString &dataDir, QObject *parent)
     : QObject(parent), api(this), push(this), store(dataDir + "/expenses.sqlite") {
     // Восстанавливаем настройку; второй аргумент используется только при её отсутствии. Значение могло
     // сохраниться от предыдущего запуска.
-    api.baseUrl = settings.value("server", "https://172.20.10.14:9443").toString();
+    api.baseUrl = settings.value("server", "https://192.168.0.104:9443").toString();
     // Восстанавливаем настройку; второй аргумент используется только при её отсутствии. Значение могло
     // сохраниться от предыдущего запуска.
     // Публичный сертификат устанавливается вместе с RPM; закрытый ключ остаётся на сервере.

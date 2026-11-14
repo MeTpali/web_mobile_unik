@@ -6,7 +6,7 @@ Summary: Scalable expenses — laboratory 3
 # Версия функциональности пакета, отдельно от Release пересборки.
 Version: 2.0.0
 # Номер пересборки этой версии: позволяет установщику отличать обновлённый пакет.
-Release: 13
+Release: 15
 License: BSD-3-Clause
 URL: https://developer.auroraos.ru
 # Архив исходников RPM; макросы подставляют имя и версию.
